@@ -1,0 +1,78 @@
+var DataTypes = require("sequelize").DataTypes;
+var _ATtoETAssignment = require("./ATtoETAssignment");
+var _Alerts = require("./Alerts");
+var _AlertsTypes = require("./AlertsTypes");
+var _Deliveries = require("./Deliveries");
+var _DisplayElementsAssignment = require("./DisplayElementsAssignment");
+var _Displays = require("./Displays");
+var _ElementsTypes = require("./ElementsTypes");
+var _Groups = require("./Groups");
+var _MapsAndElements = require("./MapsAndElements");
+var _MapsToGroupAssignment = require("./MapsToGroupAssignment");
+var _Membership = require("./Membership");
+var _Orders = require("./Orders");
+var _Users = require("./Users");
+
+function initModels(sequelize) {
+  var ATtoETAssignment = _ATtoETAssignment(sequelize, DataTypes);
+  var Alerts = _Alerts(sequelize, DataTypes);
+  var AlertsTypes = _AlertsTypes(sequelize, DataTypes);
+  var Deliveries = _Deliveries(sequelize, DataTypes);
+  var DisplayElementsAssignment = _DisplayElementsAssignment(sequelize, DataTypes);
+  var Displays = _Displays(sequelize, DataTypes);
+  var ElementsTypes = _ElementsTypes(sequelize, DataTypes);
+  var Groups = _Groups(sequelize, DataTypes);
+  var MapsAndElements = _MapsAndElements(sequelize, DataTypes);
+  var MapsToGroupAssignment = _MapsToGroupAssignment(sequelize, DataTypes);
+  var Membership = _Membership(sequelize, DataTypes);
+  var Orders = _Orders(sequelize, DataTypes);
+  var Users = _Users(sequelize, DataTypes);
+
+  ATtoETAssignment.belongsTo(AlertsTypes, { as: "AA", foreignKey: "AAID"});
+  AlertsTypes.hasMany(ATtoETAssignment, { as: "ATtoETAssignments", foreignKey: "AAID"});
+  Alerts.belongsTo(AlertsTypes, { as: "AA", foreignKey: "AAID"});
+  AlertsTypes.hasMany(Alerts, { as: "Alerts", foreignKey: "AAID"});
+  DisplayElementsAssignment.belongsTo(Displays, { as: "DID_Display", foreignKey: "DID"});
+  Displays.hasMany(DisplayElementsAssignment, { as: "DisplayElementsAssignments", foreignKey: "DID"});
+  ATtoETAssignment.belongsTo(ElementsTypes, { as: "ET", foreignKey: "ETID"});
+  ElementsTypes.hasMany(ATtoETAssignment, { as: "ATtoETAssignments", foreignKey: "ETID"});
+  MapsAndElements.belongsTo(ElementsTypes, { as: "ET", foreignKey: "ETID"});
+  ElementsTypes.hasMany(MapsAndElements, { as: "MapsAndElements", foreignKey: "ETID"});
+  MapsToGroupAssignment.belongsTo(Groups, { as: "GID_Group", foreignKey: "GID"});
+  Groups.hasMany(MapsToGroupAssignment, { as: "MapsToGroupAssignments", foreignKey: "GID"});
+  Membership.belongsTo(Groups, { as: "GID_Group", foreignKey: "GID"});
+  Groups.hasMany(Membership, { as: "Memberships", foreignKey: "GID"});
+  Alerts.belongsTo(MapsAndElements, { as: "EID_MapsAndElement", foreignKey: "EID"});
+  MapsAndElements.hasMany(Alerts, { as: "Alerts", foreignKey: "EID"});
+  DisplayElementsAssignment.belongsTo(MapsAndElements, { as: "EID_MapsAndElement", foreignKey: "EID"});
+  MapsAndElements.hasMany(DisplayElementsAssignment, { as: "DisplayElementsAssignments", foreignKey: "EID"});
+  MapsAndElements.belongsTo(MapsAndElements, { as: "ParentE", foreignKey: "ParentEID"});
+  MapsAndElements.hasMany(MapsAndElements, { as: "MapsAndElements", foreignKey: "ParentEID"});
+  MapsToGroupAssignment.belongsTo(MapsAndElements, { as: "EID_MapsAndElement", foreignKey: "EID"});
+  MapsAndElements.hasMany(MapsToGroupAssignment, { as: "MapsToGroupAssignments", foreignKey: "EID"});
+  Orders.belongsTo(MapsAndElements, { as: "EID_MapsAndElement", foreignKey: "EID"});
+  MapsAndElements.hasMany(Orders, { as: "Orders", foreignKey: "EID"});
+  Deliveries.belongsTo(Orders, { as: "OID_Order", foreignKey: "OID"});
+  Orders.hasMany(Deliveries, { as: "Deliveries", foreignKey: "OID"});
+  Membership.belongsTo(Users, { as: "UID_User", foreignKey: "UID"});
+  Users.hasMany(Membership, { as: "Memberships", foreignKey: "UID"});
+
+  return {
+    ATtoETAssignment,
+    Alerts,
+    AlertsTypes,
+    Deliveries,
+    DisplayElementsAssignment,
+    Displays,
+    ElementsTypes,
+    Groups,
+    MapsAndElements,
+    MapsToGroupAssignment,
+    Membership,
+    Orders,
+    Users,
+  };
+}
+module.exports = initModels;
+module.exports.initModels = initModels;
+module.exports.default = initModels;
