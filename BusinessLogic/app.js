@@ -4,21 +4,38 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
+const { Server } = require('socket.io');
+const http = require('http');
 const testAuthentication = require('./database/authTest');
 const migrate = require('./database/migrate');
 const seed = require('./database/seed');
 require('dotenv').config();
 
+const corsBody =
+    // {
+    //     exposedHeaders: ['Content-Type', 'Content-Disposition'],
+    //     origin: ['http://localhost:5173', 'http://localhost:3000'],
+    //     credentials: true,
+    // };
+    {
+        origin: '*',
+    };
+
 const app = express();
+const server = http.createServer(app);
 app.use(express.json());
 app.use(cookieParser());
-app.use(
-    cors({
-        exposedHeaders: ['Content-Type', 'Content-Disposition'],
-        origin: ['http://localhost:5173', 'http://localhost:3000'],
-        credentials: true,
-    })
-);
+app.use(cors(corsBody));
+const io = new Server(server, {
+    cors: corsBody,
+});
+
+io.on('connection', socket => {
+    // socket.on('join', ({ hallId }) => {
+    //     socket.join(hallId);
+    console.log(`Socket ${socket.id}`);
+    // });
+});
 
 testAuthentication()
     .then(() => migrate())
@@ -64,6 +81,6 @@ fs.readdirSync(routesPath).forEach(file => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
