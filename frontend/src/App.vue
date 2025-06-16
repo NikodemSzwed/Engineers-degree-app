@@ -1,11 +1,15 @@
 <script setup>
 import HelloWorld from './components/HelloWorld.vue';
+import Button from 'primevue/button';
 </script>
 
 <template>
     <div>
         <a href="https://vite.dev" target="_blank"> <img src="/vite.svg" class="logo" alt="Vite logo" /> </a>
         <a href="https://vuejs.org/" target="_blank"> <img src="./assets/vue.svg" class="logo vue" alt="Vue logo" /></a>
+    </div>
+    <div class="bg-red-500 h-[100px] w-[200px] ml-4 mr-4">
+        <Button label="Przycisk" @click="console.log('Przycisk został kliknięty')" class="h-[50px]"></Button>
     </div>
     <HelloWorld msg="Vite + Vue" />
 </template>

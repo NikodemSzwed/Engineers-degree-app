@@ -8,6 +8,5 @@
     "bracketSpacing": true,
     "arrowParens": "avoid",
     "vueIndentScriptAndStyle": true,
-    "htmlWhitespaceSensitivity": "strict",
     "plugins": ["prettier-plugin-vue"]
 }

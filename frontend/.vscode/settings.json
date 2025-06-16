@@ -7,5 +7,12 @@
     "[vue]": {
         "editor.defaultFormatter": "Vue.volar",
         "volar.takeOverMode.enabled": true
+    },
+    "tailwindCSS.includeLanguages": {
+        "vue": "html"
+    },
+    "tailwindCSS.root": "./",
+    "editor.quickSuggestions": {
+        "strings": true
     }
 }
