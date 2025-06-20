@@ -11,15 +11,11 @@ const migrate = require('./database/migrate');
 const seed = require('./database/seed');
 require('dotenv').config();
 
-const corsBody =
-    // {
-    //     exposedHeaders: ['Content-Type', 'Content-Disposition'],
-    //     origin: ['http://localhost:5173', 'http://localhost:3000'],
-    //     credentials: true,
-    // };
-    {
-        origin: '*',
-    };
+const corsBody = {
+    exposedHeaders: ['Content-Type', 'Content-Disposition'],
+    origin: ['http://localhost:5173', 'http://localhost:3000'],
+    credentials: true,
+};
 
 const app = express();
 const server = http.createServer(app);
@@ -52,7 +48,7 @@ const verifyJWT = (req, res, next) => {
         req.decodedToken = decoded;
         next();
     } catch (err) {
-        return res.status(403).json({ error: 'Unauthorized: Invalid token' });
+        return res.status(401).json({ error: 'Unauthorized: Invalid token' });
     }
 };
 const displayRemoteRegex =

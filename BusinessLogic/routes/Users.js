@@ -104,8 +104,9 @@ router.post('/login', async (req, res) => {
         );
 
         res.cookie('WarehouseLogisticsToken', token, {
-            httpOnly: false,
-            secure: process.env.NODE_ENV === 'production' ? true : false,
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'Lax',
             maxAge: 3600000,
         });
 
@@ -177,15 +178,11 @@ router.post('/refresh', async (req, res) => {
             { expiresIn: '1h' }
         );
 
-        // const newtoken = jwt.sign(
-        //     decodedToken,
-        //     process.env.JWT_SECRET || 'secret'
-        // );
-
         res.clearCookie('WarehouseLogisticsToken');
         res.cookie('WarehouseLogisticsToken', newtoken, {
-            sameSite: 'strict',
-            secure: process.env.NODE_ENV === 'production' ? true : false,
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'Lax',
             maxAge: 3600000,
         });
 
@@ -196,6 +193,11 @@ router.post('/refresh', async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: 'Failed to verify token', details: error.message });
     }
+});
+
+router.post('/logout', async (req, res) => {
+    res.clearCookie('WarehouseLogisticsToken');
+    res.status(200).json({ message: 'Logout successful' });
 });
 
 router.get('/:id', async (req, res) => {

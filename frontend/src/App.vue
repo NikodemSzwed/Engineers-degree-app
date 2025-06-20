@@ -1,6 +1,7 @@
 <script setup>
 import HelloWorld from './components/HelloWorld.vue';
 import Button from 'primevue/button';
+import tak from './components/tak.vue';
 </script>
 
 <template>
@@ -12,6 +13,8 @@ import Button from 'primevue/button';
         <Button label="Przycisk" @click="console.log('Przycisk został kliknięty')" class="h-[50px]"></Button>
     </div>
     <HelloWorld msg="Vite + Vue" />
+    <tak></tak>
+    <router-view />
 </template>
 
 <style scoped>

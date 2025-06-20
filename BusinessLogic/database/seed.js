@@ -28,6 +28,7 @@ async function seed() {
             { EID: 4, ParentEID: 2, ETID: 3, name: 'Sektor 2', DimensionsAndStructure_json: '{}' },
             { EID: 5, ParentEID: 2, ETID: 3, name: 'Sektor 3', DimensionsAndStructure_json: '{}' },
             { EID: 6, ParentEID: null, ETID: 1, name: 'Hala 9', DimensionsAndStructure_json: '{}' },
+            { EID: 7, ParentEID: 6, ETID: 3, name: 'Sektor 4', DimensionsAndStructure_json: '{}' },
             {
                 EID: 16,
                 ParentEID: 3,
@@ -39,7 +40,7 @@ async function seed() {
                 EID: 19,
                 ParentEID: 3,
                 ETID: 2,
-                name: 'Zlecenie1',
+                name: 'Zlecenie2',
                 DimensionsAndStructure_json: '{}',
             },
         ]);
