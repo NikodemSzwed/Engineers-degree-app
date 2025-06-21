@@ -34,6 +34,7 @@ router.post('/', async (req, res) => {
             login: req.body.login,
             email: req.body.email,
             passwd: HashPasswd,
+            PersonalSettings_json: req.body.PersonalSettings_json,
         });
         res.json(newUser);
     } catch (error) {
@@ -116,6 +117,7 @@ router.post('/login', async (req, res) => {
                 id: user.UID,
                 email: user.email,
                 login: user.login,
+                adminPrivileges: userGroups.length > 0,
                 personalSettings: user.PersonalSettings_json,
             },
         });

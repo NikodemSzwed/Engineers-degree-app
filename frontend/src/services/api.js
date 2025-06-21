@@ -1,5 +1,5 @@
 import axios from 'axios';
-import router from '../router';
+import { logout } from './authFunctions';
 
 const api = axios.create({
     baseURL: 'http://localhost:3000/api',
@@ -18,7 +18,8 @@ api.interceptors.response.use(
             const { status } = error.response;
 
             if (status === 401) {
-                router.push('/login');
+                console.log('Unauthorized api call');
+                await logout();
             }
 
             if (status === 403) {

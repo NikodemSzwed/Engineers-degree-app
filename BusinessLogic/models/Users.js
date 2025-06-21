@@ -23,8 +23,8 @@ module.exports = function (sequelize, DataTypes) {
             },
             PersonalSettings_json: {
                 type: DataTypes.TEXT,
-                allowNull: true,
-                defaultValue: "'{}'",
+                allowNull: false,
+                defaultValue: '{}',
             },
         },
         {

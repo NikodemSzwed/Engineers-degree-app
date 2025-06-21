@@ -1,7 +1,5 @@
 import api from './api';
-import { useRouter } from 'vue-router';
-
-const router = useRouter();
+import { logout } from './authFunctions';
 
 let refreshInterval = null;
 let activityTimeout = null;
@@ -28,8 +26,7 @@ async function refreshToken() {
         await api.post('/users/refresh');
     } catch (err) {
         console.error('Token refresh failed', err);
-        stopAuthRefresh();
-        router.push('/login');
+        await logout();
     }
 }
 
@@ -68,5 +65,5 @@ export function stopAuthRefresh() {
     document.removeEventListener('keydown', onUserActivity);
     document.removeEventListener('visibilitychange', onVisibilityChange);
     stopRefreshLoop();
-    // console.log('🚀 ~ startAuthRefresh ~ Auth refresher stopped');
+    // console.log('🚀 ~ stopAuthRefresh ~ Auth refresher stopped');
 }

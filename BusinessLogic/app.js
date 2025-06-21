@@ -53,7 +53,7 @@ const verifyJWT = (req, res, next) => {
 };
 const displayRemoteRegex =
     /\/displays\/remote\/[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$/;
-const excludedRoutes = ['/users/login', '/users/refresh', '/displays/register', displayRemoteRegex];
+const excludedRoutes = ['/users/login', '/users/refresh', '/users/logout', '/displays/register', displayRemoteRegex];
 
 app.use((req, res, next) => {
     if (
