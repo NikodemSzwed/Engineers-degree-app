@@ -1,13 +1,14 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import api from '../services/api.js';
 import { logout } from '../services/authFunctions';
-import Dashboard from '@/views/Home.vue';
-import Maps from '@/views/Home.vue';
-import Orders from '@/views/Home.vue';
-import Displays from '@/views/Home.vue';
-import Alerts from '@/views/Home.vue';
-import Users from '@/views/Home.vue';
-import NotFound from '@/views/About.vue';
+import Dashboard from '@/views/Dashboard.vue';
+import Maps from '@/views/Dashboard.vue';
+import Orders from '@/views/Dashboard.vue';
+import Displays from '@/views/Dashboard.vue';
+import Alerts from '@/views/Dashboard.vue';
+import Users from '@/views/Dashboard.vue';
+import NotFound from '@/views/NotFound.vue';
+import MainView from '../views/MainView.vue';
 
 const routes = [
     {
@@ -20,7 +21,7 @@ const routes = [
     },
     {
         path: '/',
-        // component: () => import('@/layouts/MainLayout.vue'), // if using layout
+        component: MainView,
         children: [
             { path: '', redirect: '/dashboard' },
             { path: 'dashboard', name: 'Dashboard', component: Dashboard },
@@ -44,7 +45,7 @@ const router = createRouter({
     routes,
 });
 
-router.beforeEach(async (to, from) => {
+router.beforeEach(async to => {
     const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
 
     if (!requiresAuth) return true;

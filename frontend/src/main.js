@@ -2,6 +2,7 @@ import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import piniaPersistedState from 'pinia-plugin-persistedstate';
 import './assets/main.css';
+import 'primeicons/primeicons.css';
 import router from './router';
 import App from './App.vue';
 import PrimeVue from 'primevue/config';
@@ -22,6 +23,7 @@ app.use(PrimeVue, {
                 name: 'primevue',
                 order: 'theme, base, primevue',
             },
+            darkModeSelector: false,
         },
     },
 });

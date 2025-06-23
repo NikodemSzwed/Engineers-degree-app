@@ -1,11 +1,11 @@
 <script setup>
-import { ref } from 'vue';
+    import { ref } from 'vue';
 
-defineProps({
-    msg: String,
-});
+    defineProps({
+        msg: String,
+    });
 
-const count = ref(0);
+    const count = ref(0);
 </script>
 
 <template>
@@ -13,8 +13,7 @@ const count = ref(0);
 
     <div class="card">
         <button type="button" @click="count++">count is {{ count }}</button>
-        <p> Edit <code>components/HelloWorld.vue</code> to test HMR </p>
-
+        <p>Edit <code>components/HelloWorld.vue</code> to test HMR</p>
     </div>
 
     <p>
@@ -23,17 +22,17 @@ const count = ref(0);
     </p>
 
     <p>
-        Learn more about IDE Support for Vue in the <a
-            href="https://vuejs.org/guide/scaling-up/tooling.html#ide-support" target="_blank">Vue Docs Scaling up
-            Guide</a>.
+        Learn more about IDE Support for Vue in the
+        <a href="https://vuejs.org/guide/scaling-up/tooling.html#ide-support" target="_blank"
+            >Vue Docs Scaling up Guide</a
+        >.
     </p>
 
     <p class="read-the-docs">Click on the Vite and Vue logos to learn more</p>
-
 </template>
 
 <style scoped>
-.read-the-docs {
-    color: #888;
-}
+    .read-the-docs {
+        color: #888;
+    }
 </style>

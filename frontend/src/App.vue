@@ -1,11 +1,9 @@
 <script setup>
-import HelloWorld from './components/HelloWorld.vue';
-import Button from 'primevue/button';
-import tak from './components/tak.vue';
-</script>
+    </script>
 
 <template>
-    <div>
+    <div class="h-[100vh] w-[100vw]"><router-view /></div>
+    <!-- <div>
         <a href="https://vite.dev" target="_blank"> <img src="/vite.svg" class="logo" alt="Vite logo" /> </a>
         <a href="https://vuejs.org/" target="_blank"> <img src="./assets/vue.svg" class="logo vue" alt="Vue logo" /></a>
     </div>
@@ -13,11 +11,9 @@ import tak from './components/tak.vue';
         <Button label="Przycisk" @click="console.log('Przycisk został kliknięty')" class="h-[50px]"></Button>
     </div>
     <HelloWorld msg="Vite + Vue" />
-    <tak></tak>
-    <router-view />
+    <tak></tak> -->
 </template>
-
-<style scoped>
+<!-- <style scoped>
 .logo {
     height: 6em;
     padding: 1.5em;
@@ -32,4 +28,4 @@ import tak from './components/tak.vue';
 .logo.vue:hover {
     filter: drop-shadow(0 0 2em #42b883aa);
 }
-</style>
+</style> -->
