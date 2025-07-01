@@ -2,6 +2,7 @@ import api from './api';
 import router from '../router';
 import { startAuthRefresh, stopAuthRefresh } from '../services/tokenRefresh.js';
 import { useUserStore } from '@/stores/userData';
+import { loadTheme } from './themeChanger.js';
 
 export async function login(login, password) {
     try {
@@ -13,6 +14,7 @@ export async function login(login, password) {
         const userData = useUserStore();
 
         userData.setUser(response.data.user);
+        loadTheme();
         startAuthRefresh();
         await router.push({ name: 'Dashboard' });
     } catch (error) {
@@ -28,6 +30,7 @@ export async function logout() {
     }
     const userData = useUserStore();
     userData.clearUser();
+    loadTheme();
     stopAuthRefresh();
     await router.push({ name: 'Login' });
 }

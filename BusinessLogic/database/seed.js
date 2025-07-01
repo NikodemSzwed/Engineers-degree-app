@@ -43,11 +43,23 @@ async function seed() {
                 name: 'Zlecenie2',
                 DimensionsAndStructure_json: '{}',
             },
+            { EID: 20, ParentEID: 3, ETID: 2, name: 'Zlecenie3', DimensionsAndStructure_json: '{}' },
+            { EID: 21, ParentEID: 3, ETID: 2, name: 'Zlecenie4', DimensionsAndStructure_json: '{}' },
+            { EID: 22, ParentEID: 3, ETID: 2, name: 'Zlecenie5', DimensionsAndStructure_json: '{}' },
+            { EID: 23, ParentEID: 3, ETID: 2, name: 'Zlecenie6', DimensionsAndStructure_json: '{}' },
+            { EID: 24, ParentEID: 3, ETID: 2, name: 'Zlecenie7', DimensionsAndStructure_json: '{}' },
+            { EID: 25, ParentEID: 3, ETID: 2, name: 'Zlecenie8', DimensionsAndStructure_json: '{}' },
         ]);
 
         await Orders.bulkCreate([
-            { OID: 1, EID: 16, State: 0, Priority: 1, deadline: new Date('2024-11-23 18:08:09') },
-            { OID: 2, EID: 19, State: 0, Priority: 1, deadline: new Date('2024-11-23 18:12:39') },
+            { OID: 1, EID: 16, State: 0, Priority: 1, deadline: new Date('2025-06-23 18:08:09') },
+            { OID: 2, EID: 19, State: 0, Priority: 1, deadline: new Date('2025-07-23 18:12:39') },
+            { OID: 3, EID: 20, State: 1, Priority: 1, deadline: new Date('2025-06-23 18:08:09') },
+            { OID: 4, EID: 21, State: 1, Priority: 1, deadline: new Date('2025-05-23 18:12:39') },
+            { OID: 5, EID: 22, State: 2, Priority: 1, deadline: new Date('2025-04-23 18:08:09') },
+            { OID: 6, EID: 23, State: 2, Priority: 1, deadline: new Date('2025-03-23 18:12:39') },
+            { OID: 7, EID: 24, State: 1, Priority: 1, deadline: new Date('2025-02-23 18:08:09') },
+            { OID: 8, EID: 25, State: 1, Priority: 1, deadline: new Date('2025-03-23 18:12:39') },
         ]);
 
         await AlertsTypes.bulkCreate([

@@ -9,6 +9,7 @@ import Alerts from '@/views/Dashboard.vue';
 import Users from '@/views/Dashboard.vue';
 import NotFound from '@/views/NotFound.vue';
 import MainView from '../views/MainView.vue';
+import Settings from '../pages/Settings.vue';
 
 const routes = [
     {
@@ -30,6 +31,7 @@ const routes = [
             { path: 'displays', name: 'Displays', component: Displays, meta: { requiresAdmin: true } },
             { path: 'alerts', name: 'Alerts', component: Alerts },
             { path: 'users', name: 'Users', component: Users, meta: { requiresAdmin: true } },
+            { path: 'settings', name: 'Settings', component: Settings },
         ],
         meta: { requiresAuth: true },
     },
