@@ -1,12 +1,12 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import api from '../services/api.js';
 import { logout } from '../services/authFunctions';
-import Dashboard from '@/views/Dashboard.vue';
-import Maps from '@/views/Dashboard.vue';
-import Orders from '@/views/Dashboard.vue';
-import Displays from '@/views/Dashboard.vue';
-import Alerts from '@/views/Dashboard.vue';
-import Users from '@/views/Dashboard.vue';
+import Dashboard from '@/pages/Dashboard.vue';
+import Maps from '@/pages/Maps.vue';
+import Orders from '@/pages/Dashboard.vue';
+import Displays from '@/pages/Dashboard.vue';
+import Alerts from '@/pages/Dashboard.vue';
+import Users from '@/pages/Dashboard.vue';
 import NotFound from '@/views/NotFound.vue';
 import MainView from '../views/MainView.vue';
 import Settings from '../pages/Settings.vue';

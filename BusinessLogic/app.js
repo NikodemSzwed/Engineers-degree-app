@@ -13,7 +13,12 @@ require('dotenv').config();
 
 const corsBody = {
     exposedHeaders: ['Content-Type', 'Content-Disposition'],
-    origin: ['http://localhost:5173', 'http://localhost:3000'],
+    origin: [
+        'http://localhost:5173',
+        'http://localhost:3000',
+        'http://192.168.0.157:3000',
+        'http://192.168.0.157:5173',
+    ],
     credentials: true,
 };
 

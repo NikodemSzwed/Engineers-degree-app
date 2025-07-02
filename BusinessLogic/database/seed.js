@@ -62,6 +62,10 @@ async function seed() {
             { OID: 8, EID: 25, State: 1, Priority: 1, deadline: new Date('2025-03-23 18:12:39') },
         ]);
 
+        let orders = generateOrders(9, 26, 1000);
+        await MapsAndElements.bulkCreate(orders[0]);
+        await Orders.bulkCreate(orders[1]);
+
         await AlertsTypes.bulkCreate([
             { AAID: 1, name: 'Brak elementu' },
             { AAID: 2, name: 'Złe zlecenie na sektorze' },
@@ -128,6 +132,55 @@ async function seed() {
     } catch (error) {
         console.error('Error seeding data:', error);
     }
+}
+
+function generateOrders(startingOID, startingEID, amount) {
+    let EIDs = [];
+    let OIDs = [];
+    const probabilities = [
+        { month: 0, probability: 0.08 },
+        { month: 1, probability: 0.12 },
+        { month: 2, probability: 0.1 },
+        { month: 3, probability: 0.08 },
+        { month: 4, probability: 0.15 },
+        { month: 5, probability: 0.16 },
+        { month: 6, probability: 0.1 },
+        { month: 7, probability: 0.07 },
+        { month: 8, probability: 0.03 },
+        { month: 9, probability: 0.05 },
+        { month: 10, probability: 0.05 },
+        { month: 11, probability: 0.01 },
+    ];
+
+    function getRandomMonth() {
+        const random = Math.random();
+        let cumulativeProbability = 0;
+        for (const { month, probability } of probabilities) {
+            cumulativeProbability += probability;
+            if (random < cumulativeProbability) {
+                return month;
+            }
+        }
+    }
+
+    for (let i = 0; i < amount; i++) {
+        EIDs.push({
+            EID: startingEID + i,
+            ParentEID: 3,
+            ETID: 2,
+            name: 'Zlecenie' + (startingEID + i),
+            DimensionsAndStructure_json: '{}',
+        });
+        OIDs.push({
+            OID: startingOID + i,
+            EID: startingEID + i,
+            State: Math.random() < 0.75 ? 2 : Math.floor(Math.random() * 3),
+            Priority: 1,
+            deadline: new Date(Date.now() - 1000 * 60 * 60 * 24 * getRandomMonth() * 30 + 1000 * 60 * 60 * 24 * 30),
+        });
+    }
+
+    return [EIDs, OIDs];
 }
 
 module.exports = seed;

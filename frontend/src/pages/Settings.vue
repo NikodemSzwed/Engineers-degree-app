@@ -1,15 +1,17 @@
 <template>
-    <!-- <div class="h-[100vh] w-full bg-red-200">a</div> -->
-    <Card>
+    <Card class="w-fit">
         <template #content>
             <div class="flex flex-col justify-center gap-5">
                 <div class="flex flex-row items-center gap-5">
                     <div class="text-lg font-semibold min-w-52">Kolor dominujący:</div>
-                    <div v-for="color in definedColor" class="bg-emphasis hover:bg-highlight-emphasis flex h-25 w-32 flex-col items-center justify-center gap-2
+                    <div class="flex flex-row flex-wrap gap-3 w-full">
+                        <div v-for="color in definedColor" class="bg-emphasis hover:bg-highlight-emphasis flex h-25 w-32 flex-col items-center justify-center gap-2
                      rounded-lg p-2 shadow hover:cursor-pointer" @click="changePrimaryColor(color.color)">
-                        <div class="h-7 w-7 rounded-md" :style="{ backgroundColor: color.value }"></div>
-                        {{ color.label }}
+                            <div class="h-7 w-7 rounded-md" :style="{ backgroundColor: color.value }"></div>
+                            {{ color.label }}
+                        </div>
                     </div>
+
                 </div>
                 <div class="flex flex-row items-center gap-5">
                     <div class="text-lg font-semibold  min-w-52">Dark mode:</div>
