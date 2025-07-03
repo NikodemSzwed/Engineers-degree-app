@@ -32,29 +32,6 @@ async function allowence(allowedMaps, EIDs) {
     return allowence.length > 0;
 }
 
-router.get('/:id', async (req, res) => {
-    try {
-        let allowedMaps = getAllowedMaps(req.cookies['WarehouseLogisticsToken']);
-        const orders = await Orders.findByPk(req.params.id, {
-            where: {
-                OID: req.params.id,
-            },
-            include: {
-                model: MapsAndElements,
-                as: 'EID_MapsAndElement',
-                required: true,
-            },
-        });
-
-        if (await allowence(allowedMaps, [orders.EID])) {
-            return res.status(403).json({ error: 'You are not allowed to check some or all of those elements' });
-        }
-        res.json(orders);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to retrieve orders by EID', msg: error });
-    }
-});
-
 router.post('/', async (req, res) => {
     let transaction;
     try {
@@ -119,13 +96,6 @@ router.get('/', async (req, res) => {
         if (await allowence(allowedMaps, [])) {
             return res.status(403).json({ error: 'You are not allowed to check some or all of those elements' });
         }
-        // const order = await Orders.findAll({
-        //     include: {
-        //         model: MapsAndElements,
-        //         as: 'EID_MapsAndElement',
-        //         required: true,
-        //     },
-        // });
 
         const query = `
           WITH RECURSIVE MapElements AS (
@@ -135,11 +105,17 @@ router.get('/', async (req, res) => {
             INNER JOIN MapElements ON me.ParentEID = MapElements.EID
           )
           SELECT Orders.*,name FROM MapElements
-          INNER JOIN Orders USING(EID);
+          INNER JOIN Orders USING(EID)
+          WHERE (:startDate IS NULL OR deadline >= :startDate)
+          AND (:endDate IS NULL OR deadline < :endDate);
         `;
 
         const rawData = await db.query(query, {
-            replacements: { maps: allowedMaps },
+            replacements: {
+                maps: allowedMaps,
+                startDate: req.query.startDate || null,
+                endDate: req.query.endDate || null,
+            },
             type: db.QueryTypes.SELECT,
         });
 
@@ -148,6 +124,29 @@ router.get('/', async (req, res) => {
         res.json(rawData);
     } catch (error) {
         res.status(404).json({ error: 'Order not found' });
+    }
+});
+
+router.get('/:id', async (req, res) => {
+    try {
+        let allowedMaps = getAllowedMaps(req.cookies['WarehouseLogisticsToken']);
+        const orders = await Orders.findByPk(req.params.id, {
+            where: {
+                OID: req.params.id,
+            },
+            include: {
+                model: MapsAndElements,
+                as: 'EID_MapsAndElement',
+                required: true,
+            },
+        });
+
+        if (await allowence(allowedMaps, [orders.EID])) {
+            return res.status(403).json({ error: 'You are not allowed to check some or all of those elements' });
+        }
+        res.json(orders);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to retrieve orders by OID', msg: error });
     }
 });
 

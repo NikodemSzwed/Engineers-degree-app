@@ -36,12 +36,3 @@ body {
     --vgl-resizer-border-color: #444 !important;
     --vgl-resizer-border-width: 2px !important;
 }
-
-/* .vgl-item--placeholder {
-    z-index: var(--vgl-placeholder-z-index, 2);
-    user-select: none;
-    background-color: greenyellow;
-    /* background-color: var(--vgl-placeholder-bg, red); 
-    opacity: var(--vgl-placeholder-opacity, 20%);
-    transition-duration: 100ms;
-} */

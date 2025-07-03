@@ -2,6 +2,7 @@ import api from './api';
 import router from '../router';
 import { startAuthRefresh, stopAuthRefresh } from '../services/tokenRefresh.js';
 import { useUserStore } from '@/stores/userData';
+import { useHistory } from '../stores/useHistory.js';
 import { loadTheme } from './themeChanger.js';
 
 export async function login(login, password) {
@@ -32,5 +33,6 @@ export async function logout() {
     userData.clearUser();
     loadTheme();
     stopAuthRefresh();
+    useHistory().clear();
     await router.push({ name: 'Login' });
 }

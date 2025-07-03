@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import api from '../services/api.js';
 import { logout } from '../services/authFunctions';
+import { useHistory } from '../stores/useHistory.js';
 import Dashboard from '@/pages/Dashboard.vue';
 import Maps from '@/pages/Maps.vue';
 import Orders from '@/pages/Dashboard.vue';
@@ -69,6 +70,10 @@ router.beforeEach(async to => {
             await logout();
         } else console.error(error);
     }
+});
+
+router.afterEach(to => {
+    useHistory().push(to.fullPath);
 });
 
 export default router;

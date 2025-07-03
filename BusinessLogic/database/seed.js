@@ -163,7 +163,16 @@ function generateOrders(startingOID, startingEID, amount) {
         }
     }
 
+    function getRandomDay() {
+        return Math.floor(Math.random() * 30) + 1;
+    }
+
     for (let i = 0; i < amount; i++) {
+        let month = getRandomMonth();
+        let day = getRandomDay();
+        let deadline = new Date(Date.now() - 1000 * 60 * 60 * 24 * month * 30 + 1000 * 60 * 60 * 24 * 30);
+        deadline.setDate(day);
+
         EIDs.push({
             EID: startingEID + i,
             ParentEID: 3,
@@ -174,9 +183,10 @@ function generateOrders(startingOID, startingEID, amount) {
         OIDs.push({
             OID: startingOID + i,
             EID: startingEID + i,
-            State: Math.random() < 0.75 ? 2 : Math.floor(Math.random() * 3),
+            State:
+                Math.random() < 0.75 ? (month == 1 ? Math.floor(Math.random() * 2) : 2) : Math.floor(Math.random() * 3),
             Priority: 1,
-            deadline: new Date(Date.now() - 1000 * 60 * 60 * 24 * getRandomMonth() * 30 + 1000 * 60 * 60 * 24 * 30),
+            deadline: deadline,
         });
     }
 

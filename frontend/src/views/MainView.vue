@@ -41,7 +41,7 @@
             </Menubar>
 
             <div class="flex flex-1 flex-col overflow-y-auto relative bg-emphasis">
-                <div class="mx-5 mt-5 flex flex-1 flex-col items-center">
+                <div class="mx-3 mt-3 flex flex-1 flex-col items-center">
                     <RouterView class="w-full lg:w-10/12" />
                 </div>
 

@@ -1,9 +1,9 @@
 <template>
-    <Chart class="w-full" type="bar" :data="chartData" :options="chartOptions"></Chart>
+    <Chart type="bar" :data="chartData" :options="chartOptions"></Chart>
 </template>
 
 <script>
-export const widgetMeta = { minW: 4, minH: 7 };
+export const widgetMeta = { minW: 4, minH: 7, name: "Ilości zrealizowanych zleceń" };
 </script>
 
 <script setup>
@@ -22,10 +22,27 @@ const months = Array.from({ length: 6 }, (_, i) => {
 
 
 onMounted(async () => {
+    let start = new Date();
+    start.setMonth(start.getMonth() - 5);
+    start.setDate(1);
+    start.setHours(0, 0, 0, 0);
+    let end = new Date();
+    end.setMonth(end.getMonth() + 1);
+    end.setDate(1);
+    end.setHours(0, 0, 0, 0);
+
     try {
-        let orders = (await api.get('/orders')).data;
+        let orders = (await api.get('/orders',
+            {
+                params: {
+                    startDate: start.toISOString(),
+                    endDate: end.toISOString()
+                }
+            }
+        )).data;
 
         dataMatrix.value = [[0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0]];
+        let liporders = [];
 
         for (let i = 0; i < orders.length; i++) {
             let deadlineDate = new Date(orders[i].deadline);
@@ -34,19 +51,34 @@ onMounted(async () => {
             if (monthDifference <= 0) {
                 monthDifference += 5;
             }
-            if (monthDifference >= 0 && monthDifference < 6) {
-                dataMatrix.value[0][monthDifference] += orders[i].State == 2 ? 1 : 0;
-                dataMatrix.value[1][monthDifference] += orders[i].State != 2 ? 1 : 0;
+
+            if (monthDifference == 5) {
+                liporders.push(orders[i])
             }
+
+
+
+            if (orders[i].State == 2) {
+                // if (monthDifference == 5) console.log("🚀 ~ onMounted ~ orders[i].State:", orders[i].State)
+                dataMatrix.value[0][monthDifference] += 1;
+            } else {
+                dataMatrix.value[1][monthDifference] += 1;
+            }
+
+
         }
+        // console.log("🚀 ~ onMounted ~ liporders:", liporders)
         // console.log("🚀 ~ onMounted ~ dataMatrix.value:", dataMatrix.value)
     } catch (error) {
         console.log(error);
     }
 
+
     chartData.value = setChartData();
     chartOptions.value = setChartOptions();
 });
+
+
 
 
 const setChartData = () => {

@@ -2,8 +2,8 @@
     <Card class="w-fit">
         <template #content>
             <div class="flex flex-col justify-center gap-5">
-                <div class="flex flex-row items-center gap-5">
-                    <div class="text-lg font-semibold min-w-52">Kolor dominujący:</div>
+                <div class="flex flex-col lg:flex-row items-center gap-5">
+                    <div class="text-lg font-semibold min-w-52 w-full lg:w-fit">Kolor dominujący:</div>
                     <div class="flex flex-row flex-wrap gap-3 w-full">
                         <div v-for="color in definedColor" class="bg-emphasis hover:bg-highlight-emphasis flex h-25 w-32 flex-col items-center justify-center gap-2
                      rounded-lg p-2 shadow hover:cursor-pointer" @click="changePrimaryColor(color.color)">

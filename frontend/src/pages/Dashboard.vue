@@ -1,63 +1,11 @@
 <template>
-    <div class="">
-        <GridLayout :layout="layout" :col-num="24" :row-height="30" :isEditable="editLayout" fixKeys>
-            <!-- <template #items>
-                <GridItem v-for="item in layout" :key="item.i" :x="item.x" :y="item.y" :w="item.w" :h="item.h">
-                    <OrderRealization class="h-[15rem]"></OrderRealization>
-                </GridItem>
-            </template> -->
+    <div>
+        <!-- empty div is needed to hold grid layout in bounds -->
+        <GridLayout :layout="layout" :isEditable="editLayout" fixKeys :cols="cols" responsive>
         </GridLayout>
         <SpeedDial :model="items" direction="down" :style="{ position: 'absolute', right: '1.25rem', top: '1.25rem' }"
             :buttonProps="{ severity: 'primary', rounded: true }" :tooltipOptions="{ position: 'left' }" />
-        <!-- <component :is="OrderRealization"></component> -->
     </div>
-
-
-    <!-- <div class="flex flex-col gap-5 w-full">
-        <div class="flex flex-row gap-5 w-full">
-            <div class="flex flex-col gap-5 w-full">
-                <Card class="flex-1 w-1/2">
-                    <template #content>
-                        <Chart type="bar" :data="chartData" :options="chartOptions" class="h-[15rem]" />
-                    </template>
-</Card>
-<Card class="flex-1">
-    <template #content>
-                        <Chart type="bar" :data="chartData" :options="chartOptions" class="h-[15rem]" />
-                    </template>
-</Card>
-</div>
-<div class="flex flex-col gap-5 w-full">
-    <Card class="flex-1">
-        <template #content>
-                        <div class="w-full">
-                            <span>alerty z 10min. Welcome {{ name }}</span>
-                            <div class="h-[5rem]">tak0 asd asd asd asd asa</div>
-                            <div class="bg-emphasis h-[5rem]">tak asd asd asd asd asa</div>
-                            <div class="bg-highlight h-[5rem]">tak2 asd asd asd asd asa</div>
-                            <div class="bg-highlight-emphasis h-[5rem]">tak3 asd asd asd asd asa</div>
-                        </div>
-
-                    </template>
-    </Card>
-</div>
-</div>
-<div class="flex flex-col gap-5 w-full">
-    <Card class="flex-1">
-        <template #content>
-                    <div class="w-full">
-                        <span>ostatnie</span>
-                        <div class="h-[5rem]">tak0 asd asd asd asd asa</div>
-                        <div class="bg-emphasis h-[5rem]">tak asd asd asd asd asa</div>
-                        <div class="bg-highlight h-[5rem]">tak2 asd asd asd asd asa</div>
-                    </div>
-
-                </template>
-    </Card>
-</div>
-</div> -->
-    <!-- <div class="bg-red-200 h-[200vh]"> -->
-    <!-- </div> -->
 </template>
 
 <script setup>
@@ -76,6 +24,45 @@ const userData = useUserStore();
 const name = ref(userData.login);
 const editLayout = ref(true);
 const layout = ref([]);
+
+const cols = ref({
+    lg: 24,
+    md: 12,
+    sm: 6,
+    xs: 4,
+    xxs: 2
+});
+
+let components = [
+    { component: 'OrderRealization', props: {} },
+    { component: 'Empty', props: {} },
+    { component: 'CurrentMonthOrderAnalysys', props: {} },
+    { component: 'LastVisited', props: {} },
+    { component: 'Clock', props: {} },
+];
+
+layout.value = {
+    lg: [
+        { x: 0, y: 0, w: 8, h: 11, i: 0, static: false, ...components[0] },
+        { x: 8, y: 0, w: 16, h: 15, i: 1, static: false, ...components[1] },
+        { x: 0, y: 0, w: 8, h: 11, i: 2, minW: 5, static: false, ...components[2] },
+        { x: 8, y: 0, w: 16, h: 7, i: 3, static: false, ...components[3] },
+        { x: 8, y: 7, w: 5, h: 5, i: 4, static: false, ...components[4] }
+    ],
+    md: [
+        { x: 0, y: 0, w: 4, h: 11, i: 0, static: false, ...components[0] },
+        { x: 4, y: 0, w: 8, h: 15, i: 1, static: false, ...components[1] },
+        { x: 0, y: 8, w: 4, h: 11, i: 2, minW: 4, static: false, ...components[2] },
+        { x: 4, y: 15, w: 8, h: 7, i: 3, static: false, ...components[3] }
+    ],
+    sm: [
+        { x: 0, y: 0, w: 6, h: 11, i: 0, static: false, ...components[0] },
+        { x: 0, y: 6, w: 6, h: 15, i: 1, static: false, ...components[1] },
+        { x: 0, y: 12, w: 6, h: 11, i: 2, static: false, ...components[2] },
+        { x: 0, y: 18, w: 6, h: 7, i: 3, static: false, ...components[3] }
+    ]
+};
+
 const items = ref([
     {
         label: 'Edytuj',
@@ -92,19 +79,6 @@ const items = ref([
         }
     }
 ])
-onMounted(async () => {
-
-    layout.value = [
-        { x: 0, y: 0, w: 8, h: 11, i: 0, static: false, component: 'OrderRealization', props: {} },
-        { x: 8, y: 0, w: 16, h: 15, i: 1, static: false, component: 'Empty', props: {} },
-        { x: 0, y: 0, w: 8, h: 11, i: 1, static: false, component: 'Empty', props: {} },
-        { x: 8, y: 0, w: 16, h: 7, i: 1, static: false, component: 'Empty', props: {} },
-        // { x: 5, y: 0, w: 11, minW: 3, h: 11, minH: 7, i: 2, static: false, component: 'GridLayout', props: {} },
-    ];
-});
-
-
-
 
 
 </script>
