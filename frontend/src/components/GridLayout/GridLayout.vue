@@ -16,7 +16,7 @@
                     </template>
                 </Card>
             </GridItem>
-            <slot v-else name=" items" />
+            <slot v-else name="items" />
         </GridLayout>
     </div>
 </template>

@@ -15,7 +15,6 @@ for (const path in componentModules) {
 }
 
 for (const path in metaModules) {
-    console.log('🚀 ~ metaModules:', metaModules);
     const name = path.split('/').pop().replace('.vue', '');
     widgetsMeta[name] = metaModules[path] || { minW: 1, minH: 1 };
 }

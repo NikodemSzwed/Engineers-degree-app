@@ -7,7 +7,7 @@
 </template>
 
 <script>
-export const widgetMeta = { minW: 4, minH: 6, name: "Dzisiaj" };
+export const widgetMeta = { minW: 4, minH: 6, name: "Dzisiaj", generalName: "Zegar i data" };
 </script>
 
 <script setup>

@@ -5,7 +5,12 @@
 <script>
 const date = new Date();
 
-export const widgetMeta = { minW: 6, minH: 9, name: "Terminy zlecen - " + date.toLocaleString('pl-PL', { month: 'long' }).charAt(0).toUpperCase() + date.toLocaleString('pl-PL', { month: 'long' }).slice(1) };
+export const widgetMeta = {
+    minW: 6,
+    minH: 9,
+    name: "Terminy zleceń - " + date.toLocaleString('pl-PL', { month: 'long' }).charAt(0).toUpperCase() + date.toLocaleString('pl-PL', { month: 'long' }).slice(1),
+    generalName: "Terminy zleceń"
+};
 </script>
 
 <script setup>

@@ -1,10 +1,12 @@
 <template>
     <div class="flex flex-row gap-3 flex-wrap items-center justify-center w-full h-full overflow-auto">
         <Button v-for="(item, i) in allRoutes" :key="i"
-            class="min-w-32 w-32 h-32 border-primary-emphasis bg-emphasis hover:bg-highlight-emphasis"
+            class="min-w-32 w-32 h-32 border-primary-emphasis bg-emphasis hover:bg-highlight-emphasis flex flex-col gap-2"
             severity="secondary" raised @click="open(item.path)">
-            {{ item.name }}
+            <i class="text-3xl mx-2" :class="item.meta.icon" />
+            <span class="text-lg">{{ item.name }}</span>
         </Button>
+        <span v-if="!allRoutes.length" class="text-xl text-muted-color">Brak historii.</span>
     </div>
 </template>
 
@@ -21,7 +23,7 @@ const history = useHistory();
 const router = useRouter();
 
 const allRoutes = ref(router.getRoutes().filter(route => history.list.includes(route.path)));
-console.log("🚀 ~ allRoutes:", allRoutes)
+// console.log("🚀 ~ allRoutes:", allRoutes)
 
 function open(path) {
     router.push(path);

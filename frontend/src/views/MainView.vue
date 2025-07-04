@@ -7,9 +7,9 @@
                     <RouterLink v-for="route in routes" :key="route.path" :to="route.path"
                         @click="sidebarVisible = false">
                         <div
-                            class="dark:bg-emphasis hover:bg-highlight flex cursor-pointer flex-row items-center rounded p-2 shadow">
-                            <i class="pi text-3xl" :class="route.icon" />
-                            <span class="ml-4 text-lg">{{ route.name }}</span>
+                            class="dark:bg-emphasis hover:bg-highlight flex cursor-pointer flex-row items-center rounded p-2 gap-2 shadow">
+                            <i class="pi text-xl mx-2" :class="route.meta.icon" />
+                            <span class="text-lg">{{ route.name }}</span>
                         </div>
                     </RouterLink>
                 </div>

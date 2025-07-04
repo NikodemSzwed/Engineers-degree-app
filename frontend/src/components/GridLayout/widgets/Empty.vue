@@ -3,5 +3,5 @@
 </template>
 
 <script>
-export const widgetMeta = { minW: 2, minH: 2 };
+export const widgetMeta = { minW: 2, minH: 2, generalName: "Wypełniacz" };
 </script>
