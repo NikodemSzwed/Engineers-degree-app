@@ -11,7 +11,18 @@
 </template>
 
 <script>
-export const widgetMeta = { minW: 5, minH: 5, name: 'Ostatnio odwiedzone' }
+import getSourceFileName from '@/services/getAndGeneralizeNameOfFiles';
+
+export const widgetMeta = {
+    itemData: {
+        component: getSourceFileName(import.meta.url),
+        minW: 5,
+        minH: 5
+    },
+    metaData: {
+        name: "Ostatnio odwiedzone"
+    }
+};
 </script>
 
 <script setup>

@@ -11,7 +11,11 @@
 </div> -->
     <div>
         <div class="w-54 h-20">
-            <DraggableItem v-model:layout="layout" v-model:wraperBounds="wrapper" v-model:gridLayout="gridLayout">
+            <DraggableItem v-model:layout="layout" v-model:wraperBounds="wrapper" v-model:gridLayout="gridLayout"
+                :component="{ itemData: { minW: 2, minH: 2 }, metaData: { name: 'test' } }">
+                <template #content>
+                    <div>Drag me!</div>
+                </template>
             </DraggableItem>
         </div>
 
@@ -57,9 +61,9 @@ const layout = ref([
     // { x: 0, y: 9, w: 2, h: 3, i: '18', static: false },
     // { x: 2, y: 6, w: 2, h: 2, i: '19', static: false },
 ])
-const wrapper = ref(null)
+const wrapper = ref()
 const wrapperBounds = ref(null)
-const gridLayout = ref(null)
+const gridLayout = ref()
 
 onMounted(() => {
     wrapperBounds.value = wrapper.value.getBoundingClientRect();

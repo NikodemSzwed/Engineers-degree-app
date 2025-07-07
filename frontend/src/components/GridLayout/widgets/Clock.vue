@@ -7,8 +7,21 @@
 </template>
 
 <script>
-export const widgetMeta = { minW: 4, minH: 6, name: "Dzisiaj", generalName: "Zegar i data" };
+import getSourceFileName from '@/services/getAndGeneralizeNameOfFiles';
+
+export const widgetMeta = {
+    itemData: {
+        component: getSourceFileName(import.meta.url),
+        minW: 4,
+        minH: 6
+    },
+    metaData: {
+        name: "Dzisiaj",
+        generalName: "Zegar i data"
+    }
+};
 </script>
+
 
 <script setup>
 import { ref } from 'vue';

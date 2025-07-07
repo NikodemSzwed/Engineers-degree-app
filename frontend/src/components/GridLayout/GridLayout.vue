@@ -3,11 +3,19 @@
         <GridLayout v-model:layout="localLayout" :col-num="colNum" :row-height="rowHeight" :is-draggable="isDraggable"
             :is-resizable="isResizable" :vertical-compact="verticalCompact" :responsive="responsive" :cols="cols"
             :responsive-layouts="presetLayouts" :use-css-transforms="useCssTransforms" :margin="[10, 10]"
-            @breakpoint-changed="onBreakpointChanged">
+            @breakpoint-changed="onBreakpointChanged" ref="grid">
             <GridItem v-if="localLayout.length > 0" v-for="item in localLayout" :key="item.i" v-bind="item">
-                <Card class="w-full h-full" :pt="{ body: 'h-full', content: 'h-full overflow-hidden' }">
+                <Card class="w-full h-full"
+                    :class="{ 'bg-emphasis shadow-none': item.component === 'Empty' && !isEditable }"
+                    :pt="{ body: 'h-full', content: 'h-full overflow-hidden' }">
                     <template #title>
-                        {{ item.props.name }}
+                        <div class="flex justify-between">
+                            <span>{{ item.props?.name }}</span>
+                            <div v-if="isEditable" class="hover:text-red-500 cursor-pointer"
+                                @click="removeItem(item.i)">
+                                <i class="pi pi-trash" />
+                            </div>
+                        </div>
                     </template>
                     <template #content>
                         <!-- chart.js scales in a strange way (h-full overflows for some reason) - overflow-hidden seems to force it to scale to parent -->
@@ -22,7 +30,7 @@
 </template>
 
 <script setup>
-import { ref, watch, toRefs, onMounted } from 'vue'
+import { ref, watch, toRefs, onMounted, computed } from 'vue'
 import { GridLayout, GridItem } from 'grid-layout-plus';
 import Card from 'primevue/card';
 import { widgets, widgetsMeta } from './widgets';
@@ -80,24 +88,42 @@ const props = defineProps({
     cols: {
         type: Object,
         default: () => ({ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 })
-    }
+    },
 });
 
 const emit = defineEmits(['update:layout'])
+const grid = ref(null)
+defineExpose({
+    grid
+})
+
 const { layout } = toRefs(props);
 const isDraggable = ref(props.isDraggable)
 const isResizable = ref(props.isResizable)
 
-const localLayout = ref([]);
+// const localLayout = ref([]);
+const localLayout = computed({
+    get: () => props.layout,
+    set: (value) => {
+        emit('update:layout', value)
+    }
+})
 const presetLayouts = ref({});
 const breakpoints = ['lg', 'md', 'sm', 'xs', 'xxs'];
+
+// const localInnerRef = computed({
+//     get: () => props.innerRef,
+//     set: (value) => {
+//         emit('update:innerRef', value)
+//     }
+// });
 
 
 assignLayouts(layout.value);
 
-watch(layout, (newLayout) => {
-    assignLayouts(newLayout);
-})
+// watch(layout, (newLayout) => {
+//     assignLayouts(newLayout);
+// })
 
 // watch(localLayout, (newLayout) => {
 //     emit('update:layout', newLayout)
@@ -118,19 +144,19 @@ function assignLayouts(newLayout) {
         for (const breakpoint of breakpoints) {
             presetLayouts.value[breakpoint] = [...newLayout];
         }
-        localLayout.value = [...newLayout];
+        // localLayout.value = [...newLayout];
 
     } else if (typeof newLayout === 'object') {
         presetLayouts.value = { ...newLayout };
-        localLayout.value = [...newLayout.lg];
+        // localLayout.value = [...newLayout.lg];
     }
 
 
-    assignMetaDataToLayout();
+    // assignMetaDataToLayout();
 }
 function onBreakpointChanged(breakpoint) {
     // localLayout.value = [...presetLayouts.value[breakpoint]];
-    assignMetaDataToLayout();
+    // assignMetaDataToLayout();
 }
 
 function assignMetaDataToLayout() {
@@ -151,6 +177,14 @@ function assignMetaDataToLayout() {
         }
     })
     // console.log("🚀 ~ assignWidgetsMetaToLayout ~ widgetsMeta:", widgetsMeta)
+}
+
+function removeItem(id) {
+    const index = localLayout.value.findIndex(item => item.i === id)
+
+    if (index > -1) {
+        localLayout.value.splice(index, 1)
+    }
 }
 
 </script>

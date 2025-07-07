@@ -1,5 +1,5 @@
 <template>
-    <Dialog v-model:visible="localVisible" :header="header" :position="position" :modal="false" :draggable="false"
+    <Dialog v-model:visible="localVisible" :header="header" :position="position" :modal="false"
         :class="{ 'w-[20rem] max-h-[50rem]': direction === 'vertical', 'max-w-[60rem]': direction === 'horizontal' }"
         :pt="{
             content: {
@@ -9,6 +9,9 @@
                     'mb-6 ml-1.5 mr-1.5 pb-0 pr-1.5': hasVerticalScroll,
                     'mb-2 pb-2': hasHorizontalScroll
                 }
+            },
+            header: {
+                class: { 'cursor-grab': true }
             }
         }">
         <div class="flex gap-3"
@@ -35,7 +38,7 @@ const props = defineProps({
     },
     position: {
         type: String,
-        default: 'bottom'
+        default: 'right'
     }
 })
 

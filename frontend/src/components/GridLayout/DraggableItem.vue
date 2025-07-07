@@ -1,43 +1,18 @@
 <template>
-    <div class="w-full h-full bg-green-200" ref="droppableElement" draggable="true" unselectable="on" @drag="drag"
-        @dragend="dragEnd">
-        Droppable Element (Drag me!)
+    <div ref="droppableElement" draggable="true" unselectable="on" @drag="drag" @dragend="dragEnd">
+        <slot name="content"></slot>
     </div>
-    <!-- <div ref="wrapper" class="w-full">
-        <GridLayout ref="gridLayout" v-model:layout="layout" :row-height="30" :vertical-compact="true">
-            <template #item="{ item }">
-                <span class="text">{{ item.i }}</span>
-            </template>
-</GridLayout>
-</div> -->
 </template>
 
 <script setup>
 import { onBeforeUnmount, onMounted, ref, computed } from 'vue'
 import throttle from 'lodash.throttle'
 
-
-// import { GridLayout } from 'grid-layout-plus'
-
-// const layout = ref([
-//     { x: 0, y: 0, w: 2, h: 2, i: '0' },
-//     { x: 2, y: 0, w: 2, h: 4, i: '1' },
-//     { x: 4, y: 0, w: 2, h: 5, i: '2' },
-//     { x: 6, y: 0, w: 2, h: 3, i: '3' },
-//     { x: 8, y: 0, w: 2, h: 3, i: '4' },
-//     { x: 10, y: 0, w: 2, h: 3, i: '5' },
-//     { x: 0, y: 5, w: 2, h: 5, i: '6' },
-//     { x: 2, y: 5, w: 2, h: 5, i: '7' },
-//     { x: 4, y: 5, w: 2, h: 5, i: '8' },
-// ])
-
-// const wrapper = ref()
-// const gridLayout = ref()
-
 const props = defineProps({
     layout: { type: Array, required: true },
     wraperBounds: { type: Object, required: true },
     gridLayout: { type: Object, required: true },
+    component: { type: Object, required: true }
 })
 
 const emit = defineEmits(['update:layout', 'update:wraperBounds', 'update:gridLayout'])
@@ -57,12 +32,11 @@ const localGridLayout = computed({
     set: v => emit('update:gridLayout', v)
 })
 
-//inside
 const droppableElement = ref()
 const mouseAt = { x: -1, y: -1 }
 
 const dropId = 'drop'
-const dragItem = { x: -1, y: -1, w: 2, h: 2, i: '' }
+const dragItem = { x: -1, y: -1, w: props.component.itemData.minW, h: props.component.itemData.minH, i: '' }
 
 
 let heighOffset = 0
@@ -103,8 +77,8 @@ const drag = throttle(async () => {
         localLayout.value = [...localLayout.value, {
             x: (localLayout.value.length * 2) % 12,
             y: localLayout.value.length + 12, // puts it at the bottom
-            w: 2,
-            h: 2,
+            w: props.component.itemData.minW,
+            h: props.component.itemData.minH,
             i: dropId,
         }]
         while (!localGridLayout.value.getItem(dropId)) {
@@ -170,21 +144,24 @@ const dragEnd = async () => {
         return
     }
 
+    let max = Math.max(...localLayout.value.map(item => item.i).filter(isFinite));
+    if (!isFinite(max)) max = 0;
+
     localLayout.value = [
         ...localLayout.value.filter(item => item.i !== dropId), {
             x: dragItem.x,
             y: dragItem.y,
             w: dragItem.w,
             h: dragItem.h,
-            i: localLayout.value.length,
+            i: max + 1,
+            ...props.component.itemData,
+            props: { ...props.component.metaData }
         }]
 
     await setTimeout(() => {
         dropping = false;
         dragItem.x = 0
         dragItem.y = 0
-        dragItem.w = 2
-        dragItem.h = 2
         dragItem.i = ''
     }, 100)
 }

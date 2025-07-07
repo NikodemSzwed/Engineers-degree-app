@@ -3,13 +3,20 @@
 </template>
 
 <script>
+import getSourceFileName from '@/services/getAndGeneralizeNameOfFiles';
+
 const date = new Date();
 
 export const widgetMeta = {
-    minW: 6,
-    minH: 9,
-    name: "Terminy zleceń - " + date.toLocaleString('pl-PL', { month: 'long' }).charAt(0).toUpperCase() + date.toLocaleString('pl-PL', { month: 'long' }).slice(1),
-    generalName: "Terminy zleceń"
+    itemData: {
+        component: getSourceFileName(import.meta.url),
+        minW: 6,
+        minH: 9
+    },
+    metaData: {
+        name: "Terminy zleceń - " + date.toLocaleString('pl-PL', { month: 'long' }).charAt(0).toUpperCase() + date.toLocaleString('pl-PL', { month: 'long' }).slice(1),
+        generalName: "Terminy zleceń"
+    }
 };
 </script>
 
@@ -17,7 +24,6 @@ export const widgetMeta = {
 import { ref, onMounted } from 'vue';
 import api from '@/services/api';
 import Chart from 'primevue/chart';
-import { RadioButtonGroup } from 'primevue';
 
 const dataMatrix = ref();
 const chartData = ref();

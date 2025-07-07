@@ -3,7 +3,18 @@
 </template>
 
 <script>
-export const widgetMeta = { minW: 4, minH: 7, name: "Ilości zrealizowanych zleceń" };
+import getSourceFileName from '@/services/getAndGeneralizeNameOfFiles';
+
+export const widgetMeta = {
+    itemData: {
+        component: getSourceFileName(import.meta.url),
+        minW: 4,
+        minH: 7
+    },
+    metaData: {
+        name: "Ilości zrealizowanych zleceń"
+    }
+};
 </script>
 
 <script setup>
