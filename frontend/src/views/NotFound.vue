@@ -2,8 +2,7 @@
     <div class="relative flex h-screen w-screen flex-col items-center justify-center">
         <div class="flex flex-1 flex-col items-center justify-center gap-4">
             <div class="flex items-center pt-8 sm:justify-start">
-                <div class="border-r px-4 text-2xl tracking-wider">404
-                </div>
+                <div class="border-r px-4 text-2xl tracking-wider">404</div>
 
                 <div class="ml-4 text-2xl tracking-wider uppercase">Not Found</div>
             </div>
@@ -17,5 +16,5 @@
 </template>
 
 <script setup>
-import Button from 'primevue/button';
+    import Button from 'primevue/button';
 </script>

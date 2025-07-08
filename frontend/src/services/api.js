@@ -1,8 +1,9 @@
 import axios from 'axios';
 import { logout } from './authFunctions';
 
+const hostname = window.location.hostname;
 const api = axios.create({
-    baseURL: 'http://localhost:3000/api',
+    baseURL: 'http://' + hostname + ':3000/api',
     withCredentials: true,
     headers: {
         Accept: 'application/json',

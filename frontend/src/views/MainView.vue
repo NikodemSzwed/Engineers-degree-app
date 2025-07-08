@@ -4,11 +4,16 @@
             <template #header> Wearhouse Logistics </template>
             <div class="flex h-full flex-col justify-between">
                 <div class="flex w-full flex-col gap-1">
-                    <RouterLink v-for="route in routes" :key="route.path" :to="route.path"
-                        @click="sidebarVisible = false">
+                    <RouterLink
+                        v-for="route in routes"
+                        :key="route.path"
+                        :to="route.path"
+                        @click="sidebarVisible = false"
+                    >
                         <div
-                            class="dark:bg-emphasis hover:bg-highlight flex cursor-pointer flex-row items-center rounded p-2 gap-2 shadow">
-                            <i class="pi text-xl mx-2" :class="route.meta.icon" />
+                            class="dark:bg-emphasis hover:bg-highlight flex cursor-pointer flex-row items-center gap-2 rounded p-2 shadow"
+                        >
+                            <i class="pi mx-2 text-xl" :class="route.meta.icon" />
                             <span class="text-lg">{{ route.name }}</span>
                         </div>
                     </RouterLink>
@@ -22,7 +27,9 @@
                     <span class="ml-4 text-lg font-semibold">{{ router.currentRoute.value.name }}</span>
                 </template>
                 <template #end>
-                    <Avatar @click="toggle" class="cursor-pointer"> {{ name.charAt(0).toUpperCase() }} </Avatar>
+                    <Avatar @click="toggle" class="cursor-pointer">
+                        {{ name.charAt(0).toUpperCase() }}
+                    </Avatar>
 
                     <Menu ref="menu" id="overlay_menu" :model="items" :popup="true">
                         <template #start>
@@ -40,7 +47,7 @@
                 </template>
             </Menubar>
 
-            <div class="flex flex-1 flex-col overflow-y-auto relative bg-emphasis">
+            <div class="bg-emphasis relative flex flex-1 flex-col overflow-y-auto">
                 <div class="mx-3 mt-3 flex flex-1 flex-col items-center">
                     <RouterView class="w-full lg:w-10/12" />
                 </div>
@@ -54,45 +61,45 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
-import { useUserStore } from '../stores/userData';
-import Button from 'primevue/button';
-import Drawer from 'primevue/drawer';
-import Menubar from 'primevue/menubar';
-import Avatar from 'primevue/avatar';
-import Menu from 'primevue/menu';
-import { logout } from '../services/authFunctions';
+    import { ref } from 'vue';
+    import { useRouter } from 'vue-router';
+    import { useUserStore } from '../stores/userData';
+    import Button from 'primevue/button';
+    import Drawer from 'primevue/drawer';
+    import Menubar from 'primevue/menubar';
+    import Avatar from 'primevue/avatar';
+    import Menu from 'primevue/menu';
+    import { logout } from '../services/authFunctions';
 
-const sidebarVisible = ref(false);
-const userData = useUserStore();
-const name = ref(userData.login);
-const router = useRouter();
+    const sidebarVisible = ref(false);
+    const userData = useUserStore();
+    const name = ref(userData.login);
+    const router = useRouter();
 
-const routes = ref([]);
-routes.value = router
-    .getRoutes()
-    .find(route => route.path === '/' && route.redirect === undefined)
-    .children.filter(route => route.redirect === undefined);
+    const routes = ref([]);
+    routes.value = router
+        .getRoutes()
+        .find(route => route.path === '/' && route.redirect === undefined)
+        .children.filter(route => route.redirect === undefined);
 
-const menu = ref(null);
-const toggle = event => {
-    menu.value.toggle(event);
-};
-const items = ref([
-    {
-        label: 'Ustawienia',
-        icon: 'pi pi-cog',
-        command: () => {
-            router.push('/settings');
+    const menu = ref(null);
+    const toggle = event => {
+        menu.value.toggle(event);
+    };
+    const items = ref([
+        {
+            label: 'Ustawienia',
+            icon: 'pi pi-cog',
+            command: () => {
+                router.push('/settings');
+            },
         },
-    },
-    {
-        label: 'Wyloguj',
-        icon: 'pi pi-sign-out',
-        command: () => {
-            logout();
+        {
+            label: 'Wyloguj',
+            icon: 'pi pi-sign-out',
+            command: () => {
+                logout();
+            },
         },
-    },
-]);
+    ]);
 </script>

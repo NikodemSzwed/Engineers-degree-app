@@ -56,10 +56,7 @@ async function saveTheme() {
     const userData = useUserStore();
     try {
         await api.put(`/users/` + userData.id, {
-            PersonalSettings_json: JSON.stringify({
-                darkMode: userData.personalSettings.darkMode,
-                primaryColor: userData.personalSettings.primaryColor,
-            }),
+            PersonalSettings_json: JSON.stringify(userData.personalSettings),
         });
     } catch (error) {
         console.log(error);
