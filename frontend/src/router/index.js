@@ -7,7 +7,8 @@ import Maps from '@/pages/Maps.vue';
 import Orders from '@/pages/Dashboard.vue';
 import Displays from '@/pages/Dashboard.vue';
 import Alerts from '@/pages/Dashboard.vue';
-import Users from '@/pages/Dashboard.vue';
+import Users from '@/pages/Users.vue';
+import Groups from '@/pages/Dashboard.vue';
 import NotFound from '@/views/NotFound.vue';
 import MainView from '../views/MainView.vue';
 import Settings from '../pages/Settings.vue';
@@ -16,7 +17,7 @@ const routes = [
     {
         path: '/login',
         name: 'Login',
-        component: () => import('@/views/About.vue'),
+        component: () => import('@/views/Login.vue'),
         meta: {
             requiresAuth: false,
         },
@@ -46,6 +47,12 @@ const routes = [
                 name: 'Users',
                 component: Users,
                 meta: { icon: 'pi pi-user', requiresAdmin: true },
+            },
+            {
+                path: 'groups',
+                name: 'Groups',
+                component: Groups,
+                meta: { icon: 'pi pi-users', requiresAdmin: true },
             },
             { path: 'settings', name: 'Settings', component: Settings, meta: { icon: 'pi pi-cog' } },
         ],

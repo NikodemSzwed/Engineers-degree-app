@@ -6,7 +6,7 @@ export const useUserStore = defineStore('userData', {
         email: '',
         login: '',
         personalSettings: {},
-        adminPrivileges: false,
+        isAdmin: false,
     }),
     actions: {
         setUser(data) {

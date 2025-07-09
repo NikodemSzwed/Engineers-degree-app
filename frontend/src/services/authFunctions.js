@@ -31,7 +31,6 @@ export async function logout() {
     }
     const userData = useUserStore();
     userData.clearUser();
-    loadTheme();
     stopAuthRefresh();
     useHistory().clear();
     await router.push({ name: 'Login' });

@@ -69,4 +69,9 @@ function loadTheme() {
     toggleDarkMode(userData.personalSettings.darkMode);
 }
 
-export { changePrimaryColor, toggleDarkMode, saveTheme, loadTheme };
+function loadDefaultTheme() {
+    changePrimaryColor();
+    toggleDarkMode();
+}
+
+export { changePrimaryColor, toggleDarkMode, saveTheme, loadTheme, loadDefaultTheme };

@@ -6,7 +6,9 @@
 
                 <div class="ml-4 text-2xl tracking-wider uppercase">Not Found</div>
             </div>
-            <RouterLink to="/"> <Button>Wróć do strony głównej</Button> </RouterLink>
+            <RouterLink to="/">
+                <Button>Wróć do strony głównej</Button>
+            </RouterLink>
         </div>
 
         <footer class="text-surface-300 p-3 text-center text-sm">
@@ -16,5 +18,5 @@
 </template>
 
 <script setup>
-    import Button from 'primevue/button';
+import Button from 'primevue/button';
 </script>

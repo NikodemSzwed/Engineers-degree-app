@@ -170,6 +170,11 @@ router.post('/refresh', async (req, res) => {
             through: { attributes: [] },
         });
 
+        const personalSettings = await Users.findOne({
+            attributes: ['PersonalSettings_json'],
+            where: { UID: decodedToken.UID },
+        });
+
         const newtoken = jwt.sign(
             {
                 UID: decodedToken.UID,
@@ -191,6 +196,7 @@ router.post('/refresh', async (req, res) => {
         return res.status(200).json({
             message: 'Token refreshed',
             adminPrivileges: decodedToken.admin,
+            personalSettings: personalSettings.PersonalSettings_json,
         });
     } catch (error) {
         res.status(500).json({ error: 'Failed to verify token', details: error.message });
@@ -228,10 +234,16 @@ router.get('/:id', async (req, res) => {
 });
 
 router.put('/:id', async (req, res) => {
-    if (!req.decodedToken.admin) return res.status(403).json({ error: 'Unauthorized: Admin privileges required' });
+    if (!req.decodedToken.admin && req.decodedToken.UID != req.params.id)
+        return res.status(403).json({ error: 'Unauthorized: Admin privileges required' });
 
     try {
         let data = removePKandFieldsNotInModel(req.body, Users);
+
+        if (!req.decodedToken.admin && req.decodedToken.UID == req.params.id && data.login) {
+            return res.status(403).json({ error: 'Unauthorized: Admin privileges required to change login' });
+        }
+
         if (data.passwd) data.passwd = bcrypt.hashSync(data.passwd, 10);
         const updatedUser = await Users.update(data, {
             where: {
