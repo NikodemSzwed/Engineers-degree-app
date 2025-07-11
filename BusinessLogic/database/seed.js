@@ -77,10 +77,14 @@ async function seed() {
             { AAID: 2, EID: 3, State: 0, date: new Date('2024-11-23 18:12:39') },
             { AAID: 3, EID: 2, State: 0, date: new Date('2024-11-23 18:12:39') },
         ]);
+        await Alerts.bulkCreate(generateAlerts(26, 50));
 
         await ATtoETAssignment.bulkCreate([
             { AAID: 1, ETID: 2 },
             { AAID: 2, ETID: 3 },
+            { AAID: 3, ETID: 1 },
+            { AAID: 3, ETID: 2 },
+            { AAID: 3, ETID: 3 },
         ]);
 
         await Deliveries.bulkCreate([
@@ -191,6 +195,19 @@ function generateOrders(startingOID, startingEID, amount) {
     }
 
     return [EIDs, OIDs];
+}
+
+function generateAlerts(startingEID, amount) {
+    let AIDs = [];
+    for (let i = 0; i < amount; i++) {
+        AIDs.push({
+            EID: startingEID + i,
+            date: new Date(Date.now() - 1000 * 60 * 30 + Math.floor(Math.random() * 1000 * 60 * 40)),
+            State: Math.floor(Math.random() * 3),
+            AAID: Math.floor(Math.random() * 2) == 0 ? 1 : 3,
+        });
+    }
+    return [...AIDs];
 }
 
 module.exports = seed;

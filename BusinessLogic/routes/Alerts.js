@@ -1,10 +1,11 @@
 const express = require('express');
 const getAllowedMaps = require('../functions/getTokenData.js').getAllowedMaps;
 const router = express.Router();
-const { Op } = require('sequelize');
+const { Op, col } = require('sequelize');
 const models = require('../database/getModels.js')();
 const db = require('../database/db');
 const removePKandFieldsNotInModel = require('../functions/removePKandFieldsNotInModel.js');
+const AlertsTypes = models.AlertsTypes;
 const Alerts = models.Alerts;
 const MapsAndElements = models.MapsAndElements;
 
@@ -69,17 +70,42 @@ router.get('/', async (req, res) => {
 
         const EIDs = rawData.map(row => MapsAndElements.build(row, { isNewRecord: false })).map(row => row.EID);
         const alert = await Alerts.findAll({
+            attributes: {
+                include: [
+                    'AID',
+                    'AAID',
+                    'State',
+                    'date',
+                    [col('EID_MapsAndElement.Name'), 'EIDName'],
+                    [col('AA_AlertsTypes.Name'), 'AAName'],
+                ],
+            },
             where: {
                 [Op.and]: {
-                    State: { [Op.in]: req.body.State || [0, 1, 2] },
-                    [Op.and]: {
-                        date: { [Op.gt]: new Date(req.body.afterDate || '1900-01-01') },
-                        date: { [Op.lt]: new Date(req.body.beforeDate || '3000-01-01') },
+                    State: { [Op.in]: req.query.State || [0, 1, 2] },
+                    date: {
+                        [Op.gt]: new Date(req.query.afterDate || '1900-01-01'),
+                        [Op.lt]: new Date(req.query.beforeDate || '3000-01-01'),
                     },
                     EID: { [Op.in]: EIDs },
                 },
             },
+            include: [
+                {
+                    model: MapsAndElements,
+                    as: 'EID_MapsAndElement',
+                    attributes: [],
+                    duplicating: false,
+                },
+                {
+                    model: AlertsTypes,
+                    as: 'AA_AlertsTypes',
+                    attributes: [],
+                    duplicating: false,
+                },
+            ],
         });
+
         res.json(alert);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch alert', details: error.message });

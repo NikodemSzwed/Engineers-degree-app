@@ -30,7 +30,11 @@ function initModels(sequelize) {
 
     // ATtoETAssignment.belongsTo(AlertsTypes, { as: "AA", foreignKey: "AAID", onDelete: "CASCADE"});
     // AlertsTypes.hasMany(ATtoETAssignment, { as: "ATtoETAssignments", foreignKey: "AAID"});
-    Alerts.belongsTo(AlertsTypes, { foreignKey: 'AAID', onDelete: 'CASCADE' });
+    Alerts.belongsTo(AlertsTypes, {
+        as: 'AA_AlertsTypes',
+        foreignKey: 'AAID',
+        onDelete: 'CASCADE',
+    });
     AlertsTypes.hasMany(Alerts, { foreignKey: 'AAID' });
     DisplayElementsAssignment.belongsTo(Displays, {
         as: 'DID_Display',

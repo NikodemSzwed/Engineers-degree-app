@@ -1,8 +1,22 @@
 <template>
-    <Card>
+    <Card :pt="{ body: 'p-2 lg:p-5' }">
         <template #content>
             <DataTable :items="products" :columns="columns" :advancedFiltersAvailable="true" :showInteractions="true"
                 :loading="loading" @addItem="addItem" @editItem="editItem" @deleteItem="deleteItem">
+                <template #body-custom="{ data }">
+                    <div :class="data.custom.value">{{ data.custom.name }}</div>
+                </template>
+                <template #filter-custom="{ filterModel }">
+                    <MultiSelect v-model="filterModel.value" :options="colors" optionLabel="name" filter showClear>
+                        <template #option="slotProps">
+                            <div :class="slotProps.option.value">{{ slotProps.option.name }}</div>
+                        </template>
+                        <template #value="slotProps">
+                            <div v-for="color of slotProps.value" :class="color.value">{{ color.name }}</div>
+                        </template>
+                    </MultiSelect>
+
+                </template>
             </DataTable>
         </template>
     </Card>
@@ -14,6 +28,8 @@ import { onMounted, ref } from 'vue';
 import Card from 'primevue/card';
 import DataTable from '../components/DataTable/DataTable.vue';
 import api from '../services/api';
+import { MultiSelect } from 'primevue';
+import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
 
 
 const products = ref([]);
@@ -21,50 +37,75 @@ const products = ref([]);
 const adjectives = ['Red', 'Big', 'Small', 'Old', 'New', 'Long', 'Round', 'Flat', 'Green', 'Blue'];
 const nouns = ['Pen', 'Pencil', 'Book', 'Desk', 'Chair', 'Door', 'Window', 'Car', 'Bike', 'Table'];
 
-const categories = ['Writing', 'Painting', 'Sculpture', 'Architecture', 'Design'];
+const categories = ['Writing', 'Painting', 'Sculpture', 'Architecture', 'Design', 'Art', 'Photography', 'Music', 'Dance', 'Theater'];
+const colors = [
+    { name: 'Blue', value: 'bg-blue-500' },
+    { name: 'Red', value: 'bg-red-500' },
+    { name: 'Green', value: 'bg-green-500' },
+    { name: 'Yellow', value: 'bg-yellow-500' },
+    { name: 'Orange', value: 'bg-orange-500' },
+    { name: 'Purple', value: 'bg-purple-500' },
+    { name: 'Pink', value: 'bg-pink-500' },
+    { name: 'Teal', value: 'bg-teal-500' },
+];
 
 
 const columns = ref([
-    // { label: 'Id', field: 'id', type: 'numeric', dataKey: true, show: false },
-    // { label: 'Code', field: 'code', type: 'text', addToGlobalFilter: true },
-    // { label: 'Name', field: 'name', type: 'text', addToGlobalFilter: true },
-    // { label: 'Category', field: 'category', type: 'list', options: categories },
-    // { label: 'Quantity', field: 'quantity', type: 'numeric' },
-    // { label: 'Created', field: 'created', type: 'date', dateFormat: 'dd.MM.yyyy', showTime: false, timeFormat: 'HH:mm' },
+    { label: 'Id', field: 'id', type: 'numeric', dataKey: true, show: false },
+    { label: 'Code', field: 'code', type: 'text', addToGlobalFilter: true },
+    { label: 'Name', field: 'name', type: 'text', addToGlobalFilter: true },
+    {
+        label: 'Custom', field: 'custom', type: 'any',
+        overrideBodyTemplate: true,
+        overrideFilterTemplate: true,
+        colProps: {
+            showFilterMatchModes: false,
+            showFilterOperator: false,
+            showAddButton: false,
+            sortField: 'custom.name'
+        },
+        overrideFilter: { operator: FilterOperator.AND, constraints: [{ value: null, matchMode: FilterMatchMode.IN }] }
+    },
+    { label: 'Category', field: 'category', type: 'list', options: categories },
+    { label: 'Quantity', field: 'quantity', type: 'numeric' },
+    { label: 'Created', field: 'created', type: 'date', dateFormat: 'dd.MM.yyyy', showTime: true, timeFormat: 'HH:mm' },
 
-    { label: 'UID', field: 'UID', type: 'numeric', dataKey: true, show: false },
-    { label: 'Nazwa', field: 'login', type: 'text', addToGlobalFilter: true },
-    { label: 'Email', field: 'email', type: 'text', addToGlobalFilter: true },
-    { label: 'Ustawienia personalne', field: 'personallSettings', type: 'text', show: false },
+
+    // { label: 'UID', field: 'UID', type: 'numeric', dataKey: true, show: false },
+    // { label: 'Nazwa', field: 'login', type: 'text', addToGlobalFilter: true },
+    // { label: 'Email', field: 'email', type: 'text', addToGlobalFilter: true },
+    // { label: 'Ustawienia personalne', field: 'personallSettings', type: 'text', show: false },
 ])
 
 const loading = ref(true);
 
 onMounted(async () => {
-    try {
-        let response = await api.get('/users');
-        products.value = response.data;
-    } catch (error) {
-        console.log("🚀 ~ onMounted ~ error:", error);
-    }
-    loading.value = false;
-
-    // for (let i = 0; i < 200; i++) {
-    //     const ele = {
-    //         id: i,
-    //         code: Array(6).fill('').map(() => (Math.random() < 0.5 ? String.fromCharCode(Math.floor(Math.random() * 26) + 97) : Math.floor(Math.random() * 10).toString())).join(''),
-    //         name: adjectives[Math.floor(Math.random() * adjectives.length)] + ' ' + nouns[Math.floor(Math.random() * nouns.length)] + '' + i,
-    //         category: categories[Math.floor(Math.random() * categories.length)],
-    //         quantity: Math.floor(Math.random() * 90) + 10,
-    //         created: new Date(Date.now() + (Math.floor(Math.random() * 31) - 15) * 24 * 60 * 60 * 1000)
-    //     };
-
-    //     products.value.push(ele);
+    // try {
+    //     let response = await api.get('/users');
+    //     products.value = response.data;
+    // } catch (error) {
+    //     console.log("🚀 ~ onMounted ~ error:", error);
     // }
+    // loading.value = false;
 
-    // setTimeout(() => { loading.value = false; }, 2000);
+    for (let i = 0; i < 200; i++) {
+        const ele = {
+            id: i,
+            code: Array(6).fill('').map(() => (Math.random() < 0.5 ? String.fromCharCode(Math.floor(Math.random() * 26) + 97) : Math.floor(Math.random() * 10).toString())).join(''),
+            name: adjectives[Math.floor(Math.random() * adjectives.length)] + ' ' + nouns[Math.floor(Math.random() * nouns.length)] + '' + i,
+            category: categories[Math.floor(Math.random() * categories.length)],
+            quantity: Math.floor(Math.random() * 90) + 10,
+            created: new Date(Date.now() + (Math.floor(Math.random() * 31) - 15) * 24 * 60 * 60 * 1000),
+            custom: colors[Math.floor(Math.random() * colors.length)],
 
-    // console.log("🚀 ~ products.value:", products.value)
+        };
+
+        products.value.push(ele);
+    }
+
+    setTimeout(() => { loading.value = false; }, 2000);
+
+    console.log("🚀 ~ products.value:", products.value)
 })
 
 function addItem() {
