@@ -10,7 +10,7 @@
             '960px': 'FirstPageLink PrevPageLink CurrentPageReport NextPageLink LastPageLink RowsPerPageDropdown',
             '1300px': 'FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown',
             default: 'FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown'
-        }" sortMode="multiple" removableSort v-model:filters="filters"
+        }" sortMode="multiple" :multiSortMeta="multiSortMeta" removableSort v-model:filters="filters"
         :filterDisplay="advancedFilters ? 'menu' : 'none'" :globalFilterFields="globalFilterFields"
         :pt="{ header: { class: 'pt-0 px-0' } }">
         <!-- :virtualScrollerOptions="{ itemSize: 44, delay: 20 }" -->
@@ -63,7 +63,7 @@
         <Column v-for="col of localColumns" :field="col.field" :header="col.label" sortable
             v-show="col.show == false ? false : true" :key="col.field" :dataType="col.type == 'list' ? 'any' : col.type"
             :showFilterMatchModes="col.type == 'list' ? false : true"
-            :showFilterOperator="col.type == 'list' ? false : true" :showAddButton="col.type == 'list'"
+            :showFilterOperator="col.type == 'list' ? false : true" :showAddButton="col.type == 'list' ? false : true"
             v-bind="col.colProps" showClearButton class="w-fit min-w-35">
             <template #body="{ data }">
                 <slot v-if="col.overrideBodyTemplate" :name="'body-' + col.field" v-bind="{ data }"></slot>
@@ -75,13 +75,14 @@
                 </div>
 
             </template>
-            <template #filter="{ filterModel }" v-if="advancedFilters">
+            <template #filter="{ filterModel }" v-if="advancedFilters && (col.noFilter == true ? false : true)">
                 <slot v-if="col.overrideFilterTemplate" :name="'filter-' + col.field" v-bind="{ filterModel }"></slot>
                 <InputText v-else-if="col.type == 'text'" v-model="filterModel.value" type="text"
                     placeholder="Wyszukaj" />
                 <InputNumber v-else-if="col.type == 'numeric'" v-model="filterModel.value" placeholder="Wyszukaj" />
                 <DatePicker v-else-if="col.type == 'date'" v-model="filterModel.value" placeholder="Wyszukaj"
                     :dateFormat="col.dateFormat.replace('yyyy', 'yy').replace('MM', 'mm')" />
+                <!-- filtrowanie po czasie nie działa :showTime="col.showTime" hourFormat="24" -->
                 <MultiSelect v-else-if="col.type == 'list'" v-model="filterModel.value" :options="col.options"
                     placeholder="Wybierz" filter showClear>
                     <template #option="slotProps">
@@ -100,7 +101,7 @@
 <script setup>
 import { DataTable, Column } from 'primevue';
 import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { InputIcon, InputText, InputNumber, IconField, Button, Popover, ToggleSwitch, DatePicker, MultiSelect } from 'primevue';
 import { format } from 'date-fns';
 
@@ -147,6 +148,7 @@ const dataKey = ref();
 // used for virtual scroller height
 // const wrapper = ref();
 const selected = ref();
+const multiSortMeta = ref([]);
 
 const advancedFilters = ref(false);
 if (props.advancedFiltersAvailable) advancedFilters.value = props.activateAdvancedFilters;
@@ -176,6 +178,10 @@ for (const col of props.columns) {
 
     if (col.dataKey) {
         dataKey.value = col.field;
+    }
+
+    if (col.sortOptions) {
+        multiSortMeta.value.push({ field: col.field, order: col.sortOptions.order });
     }
 }
 
@@ -210,14 +216,14 @@ function formatDate(date, col) {
 }
 
 
-
 //to do virtuallscroller
 // onMounted(() => {
 
-//     if (virtualScrollerActive.value) {
-//         scrollHeight.value = getDivContentHeight(wrapper.value);
-//     }
+// if (virtualScrollerActive.value) {
+//     scrollHeight.value = getDivContentHeight(wrapper.value);
+// }
 
+// }
 // })
 
 // function getDivContentHeight(div) {

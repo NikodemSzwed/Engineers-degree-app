@@ -177,6 +177,18 @@ function generateOrders(startingOID, startingEID, amount) {
         let deadline = new Date(Date.now() - 1000 * 60 * 60 * 24 * month * 30 + 1000 * 60 * 60 * 24 * 30);
         deadline.setDate(day);
 
+        let state;
+
+        if (Math.random() < 0.9) {
+            if (month == 1 && Math.random() > deadline.getDate() / 30) {
+                state = Math.floor(Math.random() * 2);
+            } else {
+                state = 2;
+            }
+        } else {
+            state = Math.floor(Math.random() * 3);
+        }
+
         EIDs.push({
             EID: startingEID + i,
             ParentEID: 3,
@@ -187,8 +199,7 @@ function generateOrders(startingOID, startingEID, amount) {
         OIDs.push({
             OID: startingOID + i,
             EID: startingEID + i,
-            State:
-                Math.random() < 0.75 ? (month == 1 ? Math.floor(Math.random() * 2) : 2) : Math.floor(Math.random() * 3),
+            State: state,
             Priority: 1,
             deadline: deadline,
         });

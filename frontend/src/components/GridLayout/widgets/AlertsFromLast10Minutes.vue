@@ -52,13 +52,11 @@ const states = [
 const statesSimplified = [0, 1, 2];
 const loading = ref(true);
 
-
 const columns = ref([
-
     { label: 'AID', field: 'AID', type: 'numeric', dataKey: true, show: false },
     { label: 'AAID', field: 'AAID', type: 'numeric', show: false },
     { label: 'EID', field: 'EID', type: 'numeric', show: false },
-    { label: 'Zgłoszono', field: 'AAName', type: 'text', addToGlobalFilter: true },
+    { label: 'Zgłoszono', field: 'AAName', type: 'list', addToGlobalFilter: true, options: [] },
     { label: 'Dotyczy', field: 'EIDName', type: 'text', addToGlobalFilter: true },
     {
         label: 'Status', field: 'State', type: 'any',
@@ -72,26 +70,44 @@ const columns = ref([
         },
         overrideFilter: { operator: FilterOperator.AND, constraints: [{ value: [0, 1], matchMode: FilterMatchMode.IN }] }
     },
-    { label: 'Data zgłoszenia', field: 'date', type: 'date', dateFormat: 'dd.MM.yyyy', showTime: true, timeFormat: 'HH:mm' },
+    {
+        label: 'Data zgłoszenia',
+        field: 'date',
+        type: 'date',
+        dateFormat: 'dd.MM.yyyy',
+        showTime: true,
+        timeFormat: 'HH:mm',
+        noFilter: true,
+        sortOptions: { order: -1 }
+    },
 ])
 
 const items = ref([]);
+
 let cleanItemsIntervalId;
 
 onMounted(async () => {
     try {
+        let alertTypes = await api.get('/alertstypes');
+        columns.value.find(item => item.field === 'AAName').options = alertTypes.data.map(item => item.name);
+
         let response = await api.get('/alerts', {
             params: {
                 afterDate: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
             }
         });
 
-        items.value = response.data;
+        items.value = response.data.map(item => {
+            item.date = new Date(item.date);
+            return item;
+        });
+
     } catch (error) {
         console.log("🚀 ~ onMounted ~ error:", error);
     }
     loading.value = false;
 
+    if (cleanItemsIntervalId) clearInterval(cleanItemsIntervalId);
     cleanItemsIntervalId = setInterval(() => {
         const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
         items.value = items.value.filter(item => new Date(item.date) > tenMinutesAgo);
