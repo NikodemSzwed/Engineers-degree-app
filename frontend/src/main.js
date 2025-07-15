@@ -8,9 +8,9 @@ import App from './App.vue';
 import PrimeVue from 'primevue/config';
 import Aura from '@primeuix/themes/aura';
 import { definePreset, usePreset } from '@primeuix/themes';
+import ToastService from 'primevue/toastservice';
 
 const app = createApp(App);
-
 const pinia = createPinia();
 pinia.use(piniaPersistedState);
 app.use(pinia);
@@ -94,5 +94,5 @@ app.use(PrimeVue, {
         },
     },
 });
-
+app.use(ToastService);
 app.mount('#app');

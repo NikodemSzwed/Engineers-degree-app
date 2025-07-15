@@ -36,6 +36,7 @@ router.post('/', async (req, res) => {
             passwd: HashPasswd,
             PersonalSettings_json: req.body.PersonalSettings_json,
         });
+
         res.json(newUser);
     } catch (error) {
         res.status(500).json({ error: 'Failed to create user', details: error.message });
@@ -258,6 +259,9 @@ router.put('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
     if (!req.decodedToken.admin) return res.status(403).json({ error: 'Unauthorized: Admin privileges required' });
+    if (req.params.id == req.decodedToken.UID)
+        return res.status(403).json({ error: 'Unauthorized: Cannot delete yourself' });
+    if (req.params.id == 1) return res.status(403).json({ error: 'Unauthorized: Cannot delete main admin' });
 
     try {
         await Users.destroy({

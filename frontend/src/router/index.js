@@ -8,7 +8,7 @@ import Orders from '@/pages/Dashboard.vue';
 import Displays from '@/pages/Dashboard.vue';
 import Alerts from '@/pages/Dashboard.vue';
 import Users from '@/pages/Users.vue';
-import Groups from '@/pages/Dashboard.vue';
+import Groups from '@/pages/Groups.vue';
 import NotFound from '@/views/NotFound.vue';
 import MainView from '../views/MainView.vue';
 import Settings from '../pages/Settings.vue';

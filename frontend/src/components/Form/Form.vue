@@ -1,11 +1,22 @@
 <template>
-    <Form @submit="onFormSubmit" :resolver="globalResolver" :initial-values="initialValues"
+    <Form @submit="onFormSubmit" :resolver="globalResolver" :initial-values="props.initialValues"
         class="flex flex-col gap-4 w-full pt-1" fluid>
-        <FormField v-for="(field, i) in fields" v-slot="$field" :name="field.name" :initialValue="field.initialValue"
-            class="flex flex-col gap-1" :resolver="field.resolver">
-            <FloatLabel variant="on">
+        <FormField v-for="(field, i) in props.fields" v-slot="$field" :name="field.name"
+            :initialValue="field.initialValue" class="flex flex-col gap-1" :resolver="field.resolver">
+            <div v-if="field.component == 'PickList'">
+                <div class="ml-3 mb-2">{{ field.label }}</div>
+                {{ $field.props }} -
+                {{ $field }}
+                <component v-model="$field.value" :is="componentsMap[field.component]" autocomplete="off" fluid
+                    v-bind="$field.props" :invalid="$field?.invalid">
+                    <!-- v-bind="field.componentOptions" -->
+                </component>
+            </div>
+
+
+            <FloatLabel v-else variant="on">
                 <component :is="componentsMap[field.component]" :id="'on_label' + i" autocomplete="off" fluid
-                    v-bind="field.componentOptions">
+                    v-bind="field.componentOptions" :invalid="$field?.invalid">
                 </component>
 
                 <label :for="'on_label' + i">{{ field.label }}</label>
@@ -13,7 +24,6 @@
             <Message v-if="$field?.invalid" v-for="err in $field?.errors" severity="error" size="small"
                 variant="simple">
                 {{ err.message }}
-                <!-- {{ $field.error?.message }} -->
             </Message>
         </FormField>
         <Button type="submit" severity="secondary" label="Zapisz" />
@@ -25,111 +35,95 @@
 import { ref } from 'vue';
 import { Form } from '@primevue/forms';
 import { FormField } from '@primevue/forms';
-import { InputText, Button, FloatLabel, Password, Message } from 'primevue';
+import { InputText, Button, FloatLabel, Password, Message, PickList } from 'primevue';
 
 const componentsMap = {
     InputText,
-    Button,
     Password,
+    PickList
 };
 
-const customPasswordResolver = ({ value }) => {
-    const errors = [];
-    console.log("🚀 ~ customPasswordResolver ~ value:", value)
-    if (!value) {
-        errors.push({ message: 'Password is required via Custom.' });
-        errors.push({ message: 'Password is required via Custom2.' });
-    }
-
-    return {
-        errors
-    };
-};
-const globalResolver = ({ values }) => {
-    console.log("🚀 ~ globalResolver ~ values:", values)
-    const errors = {
-        password: [],
-        passwordRepeat: []
-    };
-    if (!values.password) {
-        errors.password.push({ message: 'Password is required via Global.' });
-    }
-
-    if (values.password.length < 8) {
-        errors.password.push({ message: 'Password must be at least 8 characters.' });
-    }
-    if (values.password.length > 20) {
-        errors.password.push({ message: 'Password must be at most 20 characters.' });
-    }
-
-
-    if (values.password !== values.passwordRepeat) {
-        errors.passwordRepeat.push({ message: 'Passwords do not match.' });
-    }
-
-    return {
-        errors
-    };
-};
-
-
-
-const fields = ref([
-    {
-        name: 'login',
-        // initialValue: '',
-        label: 'Login',
-        component: 'InputText',
-        componentOptions: {
-            type: 'text',
-        }
+const props = defineProps({
+    fields: {
+        type: Object,
+        required: true,
     },
-    {
-        name: 'email',
-        // initialValue: 'asd@wp.pl',
-        label: 'Email',
-        component: 'InputText',
-        componentOptions: {
-            type: 'text',
-        }
+    initialValues: {
+        type: Object,
+        default: () => ({}),
     },
-    {
-        name: 'password',
-        // initialValue: '',
-        label: 'Hasło',
-        component: 'Password',
-        componentOptions: {
-            type: 'password',
-            toggleMask: true,
-        },
-        // resolver: customPasswordResolver
-    },
-    {
-        name: 'passwordRepeat',
-        // initialValue: '',
-        label: 'Powtórz hasło',
-        component: 'Password',
-        componentOptions: {
-            type: 'password',
-            toggleMask: true,
-            feedback: false
-        }
-    },
-]);
-
-const initialValues = ref({
-    login: 'dame',
-    email: 'asd2@wp.pl',
-    password: '123',
-    passwordRepeat: '123',
+    globalResolverOverride: {
+        type: Function,
+        default: undefined,
+    }
 });
-// fields.value.reduce((acc, field) => {
-//     acc[field.name] = field.initialValue;
-//     return acc;
-// }, {});
+
+const emit = defineEmits(['submit']);
+
+const globalResolver = ({ values }) => {
+    if (props.globalResolverOverride) {
+        return props.globalResolverOverride({ values });
+    }
+
+    const errors = {};
+
+    for (const field of props.fields) {
+        errors[field.name] = [];
+
+        if (!field.conditions) continue;
+
+        let maxLengthDefined = false;
+
+        for (const condition of field.conditions) {
+            if (!values[field.name] && !field.optional) {
+                errors[field.name].push({ message: condition.message });
+                break;
+            }
+
+            if (condition.check == 'minlength' && values[field.name].length < condition.value) {
+                errors[field.name].push({ message: condition.message });
+            }
+            else if (condition.check == 'maxlength' && values[field.name].length > condition.value) {
+                maxLengthDefined = true;
+                errors[field.name].push({ message: condition.message });
+            }
+            else if (condition.check == 'eqlength' && values[field.name].length != condition.value) {
+                errors[field.name].push({ message: condition.message });
+            }
+            else if (condition.check == 'regex' && !values[field.name].match(new RegExp(condition.value))) {
+                errors[field.name].push({ message: condition.message });
+            }
+            else if (condition.check == 'min' && values[field.name] < condition.value) {
+                errors[field.name].push({ message: condition.message });
+            }
+            else if (condition.check == 'max' && values[field.name] > condition.value) {
+                errors[field.name].push({ message: condition.message });
+            }
+            else if (condition.check == 'custom') {
+                if (condition.function(values)) {
+                    errors[field.name].push({ message: condition.message });
+                }
+            }
+        }
+
+        if (!maxLengthDefined && (field.component == 'InputText' || field.component == 'Password') && values[field.name] && values[field.name].length > 255) {
+            errors[field.name].push({ message: 'Field must be at most 255 characters.' });
+        }
+    }
+
+    return {
+        errors
+    };
+};
 
 
-function onFormSubmit(values) {
-    console.log(values);
+function onFormSubmit(form) {
+    // if (form.valid) {
+    emit('submit', {
+        originalObject: props.initialValues,
+        newObject: form
+    });
+    // }
+
 }
 </script>
