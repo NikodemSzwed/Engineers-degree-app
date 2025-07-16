@@ -4,7 +4,8 @@
         <Card :pt="{ body: 'p-2 lg:p-5' }">
             <template #content>
                 <DataTable :items="items" :columns="columns" :advancedFiltersAvailable="true" :showInteractions="true"
-                    :loading="loading" @addItem="addItem" @editItem="editItem" @deleteItem="deleteItem">
+                    :loading="loading" @addItem="addItem" @editItem="editItem" @deleteItem="deleteItem"
+                    @showAdvancedObjectView="showAdvancedObjectView">
                 </DataTable>
             </template>
         </Card>
@@ -13,6 +14,10 @@
         </Dialog>
         <Dialog v-model:visible="editItemDialogVisible" header="Edytuj użytkownika" class="w-11/12 lg:w-1/3" modal>
             <Form :initial-values="initialValues" :fields="editItemFields" @submit="editItemSave" />
+        </Dialog>
+        <Dialog v-model:visible="advancedObjectViewVisible" header="Podgląd użytkownika" class="w-11/12 lg:w-3/4" modal
+            maximizable :pt="{ content: 'bg-emphasis rounded-b-xl pt-5' }">
+            <ObjectView :item="showItem" :fieldMap="fieldMap" :complexFieldsColumns="complexFieldsColumns"></ObjectView>
         </Dialog>
     </div>
 
@@ -28,12 +33,33 @@ import Dialog from 'primevue/dialog';
 import DataTable from '../components/DataTable/DataTable.vue';
 import api from '../services/api';
 import Form from '../components/Form/Form.vue';
+import ObjectView from '../components/ObjectView/ObjectView.vue';
+import { toastHandler } from '../services/toastHandler';
 
 const toast = useToast();
 
 const items = ref([]);
 const addItemDialogVisible = ref(false);
 const editItemDialogVisible = ref(false);
+const advancedObjectViewVisible = ref(false);
+const showItem = ref({});
+const fieldMap = ref({
+    email: { label: 'Email' },
+    login: { label: 'Login' },
+    layout: { show: false },
+    primaryColor: { label: 'Kolor przewodni' },
+    darkMode: { label: 'Tryb ciemny' },
+    PersonalSettings_json: { label: 'Ustawienia personalne' },
+    Groups: { label: 'Należy do grup' }
+});
+const complexFieldsColumns = ref({
+    Groups: [
+        { label: 'GID', field: 'GID', dataKay: true, addToGlobalFilter: true },
+        { label: 'Nazwa grupy', field: 'name', addToGlobalFilter: true }
+    ]
+})
+const mainKey = 'UID';
+const mainPath = '/users';
 
 const initialValues = ref({});
 
@@ -187,10 +213,10 @@ const loading = ref(true);
 
 onMounted(async () => {
     try {
-        let response = await api.get('/users');
+        let response = await api.get(mainPath);
         items.value = response.data;
     } catch (error) {
-        console.log("🚀 ~ onMounted ~ error:", error);
+        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych.', error));
     }
     loading.value = false;
 })
@@ -208,16 +234,15 @@ async function addItemSave(values) {
     delete payload.password;
 
     try {
-        let response = await api.post('/users', payload);
+        let response = await api.post(mainPath, payload);
 
         delete response.data.passwd;
 
         items.value.push(response.data);
 
-        toast.add({ severity: 'success', summary: 'Dodano użytkownika', detail: 'Pomyślnie dodano użytkownika', life: 2000 });
+        toast.add(toastHandler('success', 'Dodano użytkownika', 'Pomyślnie dodano użytkownika'));
     } catch (error) {
-        console.log("🚀 ~ addItemSave ~ error:", error)
-        toast.add({ severity: 'error', summary: 'Wystąpił problem', detail: 'Nie udało się dodać użytkownika. Powód: ' + error.response.data.error, life: 6000 });
+        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się dodać użytkownika', error));
     }
 
     addItemDialogVisible.value = false;
@@ -227,7 +252,7 @@ async function addItemSave(values) {
 
 function editItem(item) {
     if (!item) {
-        toast.add({ severity: 'warn', summary: 'Nie wybrano użytkownika', detail: 'Wybierz użytkownika którego chcesz zmodyfikować', life: 3000 });
+        toast.add(toastHandler('warn', 'Nie wybrano użytkownika', 'Wybierz użytkownika którego chcesz zmodyfikować'));
         return;
     }
 
@@ -243,14 +268,17 @@ async function editItemSave(values) {
     delete payload.passwordRepeat;
 
     try {
-        await api.put('/users/' + values.originalObject.UID, payload);
+        await api.put(mainPath + '/' + values.originalObject[mainKey], payload);
 
         delete payload.password;
 
-        Object.assign(items.value[items.value.indexOf(values.originalObject)], payload);
-        toast.add({ severity: 'success', summary: 'Zmodyfikowano użytkownika', detail: 'Pomyślnie zmodyfikowano użytkownika', life: 2000 });
+        let index = items.value.findIndex(item => item[mainKey] === values.originalObject[mainKey]);
+        if (index === -1) throw new Error("Nie znaleziono użytkownika lokalnie.");
+
+        Object.assign(items.value[index], payload);
+        toast.add(toastHandler('success', 'Zmodyfikowano użytkownika', 'Pomyślnie zmodyfikowano użytkownika'));
     } catch (error) {
-        toast.add({ severity: 'error', summary: 'Wystąpił problem', detail: 'Nie udało się zmodyfikować użytkownika. Powód: ' + error.response.data.error, life: 6000 });
+        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się zmodyfikować użytkownika.', error));
     }
 
     editItemDialogVisible.value = false;
@@ -258,16 +286,27 @@ async function editItemSave(values) {
 
 async function deleteItem(item) {
     if (!item) {
-        toast.add({ severity: 'warn', summary: 'Nie wybrano użytkownika', detail: 'Wybierz użytkownika którego chcesz usunąć', life: 3000 });
+        toast.add(toastHandler('warn', 'Nie wybrano użytkownika', 'Wybierz użytkownika którego chcesz usunąć'));
         return;
     }
 
     try {
-        await api.delete('/users/' + item.UID);
+        await api.delete(mainPath + '/' + item[mainKey]);
         items.value.splice(items.value.indexOf(item), 1);
-        toast.add({ severity: 'success', summary: 'Usunięto użytkownika', detail: 'Pomyślnie usunięto użytkownika', life: 2000 });
+        toast.add(toastHandler('success', 'Usunięto użytkownika', 'Pomyślnie usunięto użytkownika'));
     } catch (error) {
-        toast.add({ severity: 'error', summary: 'Wystąpił problem', detail: 'Nie udało się usunąć użytkownika. Powód: ' + error.response.data.error, life: 6000 });
+        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się usunąć użytkownika.', error));
+    }
+}
+
+async function showAdvancedObjectView(data) {
+    try {
+        let user = api.get(mainPath + '/' + data[mainKey]);
+
+        showItem.value = (await user).data;
+        advancedObjectViewVisible.value = true;
+    } catch (error) {
+        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych.', error));
     }
 }
 

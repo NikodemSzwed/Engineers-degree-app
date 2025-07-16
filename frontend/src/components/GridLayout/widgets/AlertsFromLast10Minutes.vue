@@ -1,18 +1,14 @@
 <template>
-    <DataTable :items="items" :columns="columns" :showInteractions="false" activateAdvancedFilters :loading="loading">
+    <DataTable :items="items" :columns="columns" :showInteractions="false" activateAdvancedFilters
+        :showAdvancedObjectView="false" :loading="loading">
         <template #body-State="{ data }">
             <Tag :severity="getSeverity(data.State)" :value="getMessage(data.State)"></Tag>
         </template>
         <template #filter-State="{ filterModel }">
             <MultiSelect v-model="filterModel.value" :options="statesSimplified" placeholder="Wybierz status">
                 <template #value="slotProps">
-                    <!-- <div v-if="slotProps.value >= 0"> -->
                     <Tag v-for="state of slotProps.value" :severity="getSeverity(state)" :value="getMessage(state)">
                     </Tag>
-                    <!-- </div>
-                    <span v-else>
-                        {{ slotProps.placeholder }}
-                    </span> -->
                 </template>
                 <template #option="slotProps">
                     <Tag :severity="getSeverity(slotProps.option)" :value="getMessage(slotProps.option)"></Tag>

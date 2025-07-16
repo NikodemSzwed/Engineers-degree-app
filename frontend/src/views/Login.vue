@@ -1,9 +1,15 @@
 <template>
+    <Toast></Toast>
     <div class="flex h-screen w-screen flex-col items-center justify-center bg-emphasis">
-        <div class="flex flex-1 items-center justify-center pt-8">
-
-
-            <Card class="h-fit w-fit ">
+        <div class="w-full flex justify-end pt-5 pr-5">
+            <div class="w-fit h-fit shadow bg-[var(--p-card-background)] p-2 rounded-md flex items-center justify-center cursor-pointer"
+                @click="darkModeChange">
+                <i v-if="!darkMode" class="pi pi-sun text-xl"></i>
+                <i v-else class="pi pi-moon text-xl"></i>
+            </div>
+        </div>
+        <div class="flex flex-1 items-center justify-center w-full">
+            <Card class="h-fit w-fit">
                 <template #title>
                     <div class="w-full flex justify-center items-center gap-3">
                         <div class="w-12 h-12 shadow dark:bg-emphasis p-2 rounded-md">
@@ -21,10 +27,14 @@
                     </div>
                 </template>
                 <template #content>
-                    <div class="flex flex-col items-center gap-3">
-                        Login. Welcome asd as kdinrfw nmntg n35 ng53 mh m5 6mh 647hj 467u j
-                        <InputText></InputText>
-                        <InputText></InputText>
+                    <div class="flex flex-col items-center gap-3 p-5">
+                        <div class="flex flex-col items-center gap-1 text-sm text-surface-500">
+                            <div>Witaj w systemie Warehouse Logistics.</div>
+                            <div> Zaloguj się aby przejść dalej!</div>
+                        </div>
+
+                        <Form :fields="loginFields" :submitLabel="'Zaloguj'" @submit="onFormSubmit">
+                        </Form>
                         <Button label="zaloguj" class="w-fit" @click="login('Administrator', 'ZAQ12wsx@#')"></Button>
                         <Button label="zaloguj2" class="w-fit" @click="login('Kierownik', 'ZAQ12wsx@#')"></Button>
                     </div>
@@ -43,14 +53,64 @@
 
 <script setup>
 import { ref } from 'vue';
-import { useUserStore } from '../stores/userData';
 import Button from 'primevue/button';
-import { login, logout } from '../services/authFunctions.js';
+import { login } from '../services/authFunctions.js';
 import Card from 'primevue/card';
-import { InputText } from 'primevue';
-
-const userData = useUserStore();
-const name = ref(userData.login);
+import Form from '../components/Form/Form.vue';
+import Toast from 'primevue/toast';
+import { useToast } from 'primevue';
+import { toggleDarkMode } from '../services/themeChanger.js';
 
 const color = ref('var(--color-primary)');
+const toast = useToast();
+
+const darkMode = ref(document.documentElement.classList.contains('dark'));
+
+const loginFields = ref([
+    {
+        name: 'login',
+        label: 'Login',
+        component: 'InputText',
+        componentOptions: {
+            type: 'text',
+        },
+        conditions: [{
+            check: "required",
+            message: "Login jest wymagany."
+        }]
+    },
+    {
+        name: 'password',
+        label: 'Hasło',
+        component: 'Password',
+        componentOptions: {
+            type: 'password',
+            toggleMask: true,
+            feedback: false
+        },
+        conditions: [{
+            check: "required",
+            message: "Hasło jest wymagane."
+        }]
+    }
+]);
+
+async function onFormSubmit(values) {
+    try {
+        await login(values.newObject.states.login.value, values.newObject.states.password.value);
+    } catch (error) {
+        toast.add({
+            severity: 'error',
+            summary: 'Wystąpił problem',
+            detail: error.message,
+            life: 6000
+        });
+    }
+
+}
+
+function darkModeChange() {
+    darkMode.value = !darkMode.value;
+    toggleDarkMode(darkMode.value);
+}
 </script>

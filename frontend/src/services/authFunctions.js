@@ -20,6 +20,7 @@ export async function login(login, password) {
         await router.push({ name: 'Dashboard' });
     } catch (error) {
         console.log('Login failed', error);
+        throw new Error('Zalogowanie się nie powiodło. Powód: ' + error.response.data.error);
     }
 }
 

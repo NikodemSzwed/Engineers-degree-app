@@ -27,6 +27,11 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
     if (!req.decodedToken.admin) return res.status(403).json({ error: 'Unauthorized: Admin privileges required' });
+    const newLogin = req.body.login;
+    const existingUser = await Users.findOne({
+        where: { login: newLogin },
+    });
+    if (existingUser) return res.status(400).json({ error: `User with login '${newLogin}' already exists` });
 
     try {
         const HashPasswd = bcrypt.hashSync(req.body.passwd, 10);
@@ -223,7 +228,7 @@ router.get('/:id', async (req, res) => {
             include: [
                 {
                     model: Groups,
-                    required: true,
+                    required: false,
                     through: { attributes: [] },
                 },
             ],

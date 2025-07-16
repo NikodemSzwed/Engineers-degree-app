@@ -110,6 +110,7 @@ async function dataGetter(query, id) {
                         include: [
                             {
                                 model: AlertsTypes,
+                                as: 'AA_AlertsTypes',
                                 attributes: ['name'],
                                 required: false,
                             },

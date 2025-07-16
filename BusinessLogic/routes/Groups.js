@@ -72,7 +72,7 @@ router.get('/:id', async (req, res) => {
             include: [
                 {
                     model: Users,
-                    required: true,
+                    required: false,
                     attributes: {
                         exclude: ['passwd', 'PersonalSettings_json'],
                     },
@@ -81,7 +81,7 @@ router.get('/:id', async (req, res) => {
                 {
                     model: MapsAndElements,
                     attributes: ['EID', 'name'],
-                    required: true,
+                    required: false,
                     where: { ETID: 1 },
                     through: { attributes: [] },
                 },

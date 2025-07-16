@@ -242,6 +242,26 @@ const editItemFields = ref([
             }
         }]
     },
+    // {
+    //     name: 'userUIDs',
+    //     label: 'Lista użytkowników',
+    //     component: 'PickList',
+    //     initialValue: [["1", "2"], []],
+    //     componentOptions: {
+    //         pt: {
+    //             sourceControls: {
+    //                 class: "hidden"
+    //             },
+    //             targetControls: {
+    //                 class: "hidden"
+    //             }
+    //         }
+    //     },
+    //     conditions: [{
+    //         check: "required",
+    //         message: "Lista użytkowników jest wymagana."
+    //     }]
+    // },
 ]);
 
 // const resolver = ({ values }) => {

@@ -7,6 +7,15 @@ router.post('/', async (req, res) => {
     res.status(405).json({ error: 'It is forbidden to create element type' });
 });
 
+router.get('/', async (req, res) => {
+    try {
+        const elementType = await ElementsTypes.findAll();
+        res.json(elementType);
+    } catch (error) {
+        res.status(404).json({ error: 'Element type not found', details: error.message });
+    }
+});
+
 router.get('/:id', async (req, res) => {
     try {
         const elementType = await ElementsTypes.findAll({

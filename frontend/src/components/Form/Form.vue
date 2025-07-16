@@ -3,18 +3,7 @@
         class="flex flex-col gap-4 w-full pt-1" fluid>
         <FormField v-for="(field, i) in props.fields" v-slot="$field" :name="field.name"
             :initialValue="field.initialValue" class="flex flex-col gap-1" :resolver="field.resolver">
-            <div v-if="field.component == 'PickList'">
-                <div class="ml-3 mb-2">{{ field.label }}</div>
-                {{ $field.props }} -
-                {{ $field }}
-                <component v-model="$field.value" :is="componentsMap[field.component]" autocomplete="off" fluid
-                    v-bind="$field.props" :invalid="$field?.invalid">
-                    <!-- v-bind="field.componentOptions" -->
-                </component>
-            </div>
-
-
-            <FloatLabel v-else variant="on">
+            <FloatLabel variant="on">
                 <component :is="componentsMap[field.component]" :id="'on_label' + i" autocomplete="off" fluid
                     v-bind="field.componentOptions" :invalid="$field?.invalid">
                 </component>
@@ -26,7 +15,7 @@
                 {{ err.message }}
             </Message>
         </FormField>
-        <Button type="submit" severity="secondary" label="Zapisz" />
+        <Button type="submit" :label="props.submitLabel" />
     </Form>
 
 </template>
@@ -35,12 +24,12 @@
 import { ref } from 'vue';
 import { Form } from '@primevue/forms';
 import { FormField } from '@primevue/forms';
-import { InputText, Button, FloatLabel, Password, Message, PickList } from 'primevue';
+import { InputText, Button, FloatLabel, Password, Message, MultiSelect } from 'primevue';
 
 const componentsMap = {
     InputText,
     Password,
-    PickList
+    MultiSelect
 };
 
 const props = defineProps({
@@ -55,7 +44,11 @@ const props = defineProps({
     globalResolverOverride: {
         type: Function,
         default: undefined,
-    }
+    },
+    submitLabel: {
+        type: String,
+        default: 'Zapisz',
+    },
 });
 
 const emit = defineEmits(['submit']);
@@ -118,12 +111,12 @@ const globalResolver = ({ values }) => {
 
 
 function onFormSubmit(form) {
-    // if (form.valid) {
-    emit('submit', {
-        originalObject: props.initialValues,
-        newObject: form
-    });
-    // }
+    if (form.valid) {
+        emit('submit', {
+            originalObject: props.initialValues,
+            newObject: form
+        });
+    }
 
 }
 </script>

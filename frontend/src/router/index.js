@@ -7,6 +7,7 @@ import Maps from '@/pages/Maps.vue';
 import Orders from '@/pages/Dashboard.vue';
 import Displays from '@/pages/Dashboard.vue';
 import Alerts from '@/pages/Dashboard.vue';
+import AlertTypes from '@/pages/AlertTypes.vue';
 import Users from '@/pages/Users.vue';
 import Groups from '@/pages/Groups.vue';
 import NotFound from '@/views/NotFound.vue';
@@ -41,6 +42,12 @@ const routes = [
                 name: 'Alerts',
                 component: Alerts,
                 meta: { icon: 'pi pi-exclamation-triangle' },
+            },
+            {
+                path: 'alerttypes',
+                name: 'Alert Types',
+                component: AlertTypes,
+                meta: { icon: 'pi pi-sitemap', requiresAdmin: true },
             },
             {
                 path: 'users',

@@ -5,7 +5,8 @@
 
     <DataTable v-model:selection="selected" :value="props.items" :dataKey="dataKey" :loading="props.loading"
         size="small" scrollable :scrollHeight="scrollHeight" stripedRows columnResizeMode="fit" :rows="10"
-        :rowsPerPageOptions="[5, 10, 15, 20, 50]" :paginator="!virtualScrollerActive" :paginatorTemplate="{
+        :rowsPerPageOptions="[5, 10, 15, 20, 50]" :paginator="!virtualScrollerActive && props.showPaginator"
+        :paginatorTemplate="{
             '640px': 'PrevPageLink CurrentPageReport NextPageLink RowsPerPageDropdown',
             '960px': 'FirstPageLink PrevPageLink CurrentPageReport NextPageLink LastPageLink RowsPerPageDropdown',
             '1300px': 'FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown',
@@ -14,7 +15,7 @@
         :filterDisplay="advancedFilters ? 'menu' : 'none'" :globalFilterFields="globalFilterFields"
         :pt="{ header: { class: 'pt-0 px-0' } }">
         <!-- :virtualScrollerOptions="{ itemSize: 44, delay: 20 }" -->
-        <template #header>
+        <template v-if="props.showHeader" #header>
             <div class="flex flex-col lg:flex-row justify-between gap-2 lg:gap-3 pb-1 lg:pb-2">
                 <div class="w-full flex flex-row gap-2 lg:gap-3 justify-between lg:justify-start">
                     <IconField class="flex-1 lg:flex-none">
@@ -92,6 +93,12 @@
             </template>
 
         </Column>
+        <Column v-if="props.showAdvancedObjectView" class="w-4 !text-end">
+            <template #body="{ data }">
+                <Button icon="pi pi-search" @click="$emit('showAdvancedObjectView', data)" severity="secondary"
+                    rounded></Button>
+            </template>
+        </Column>
     </DataTable>
 
     <!-- </div> -->
@@ -132,13 +139,25 @@ const props = defineProps({
         type: Boolean,
         default: true
     },
+    showAdvancedObjectView: {
+        type: Boolean,
+        default: true
+    },
+    showHeader: {
+        type: Boolean,
+        default: true
+    },
+    showPaginator: {
+        type: Boolean,
+        default: true
+    },
     loading: {
         type: Boolean,
         default: false
     }
 })
 
-const emit = defineEmits(['addItem', 'editItem', 'deleteItem']);
+const emit = defineEmits(['addItem', 'editItem', 'deleteItem', 'showAdvancedObjectView']);
 
 const localColumns = ref([
     ...props.columns.filter(col => col.show == false ? false : true)

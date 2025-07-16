@@ -9,13 +9,13 @@
                 </DataTable>
             </template>
         </Card>
-        <Dialog v-model:visible="addItemDialogVisible" header="Dodaj grupę" class="w-11/12 lg:w-1/2" modal>
+        <Dialog v-model:visible="addItemDialogVisible" header="Dodaj typ alertu" class="w-11/12 lg:w-1/2" modal>
             <Form :fields="addItemFields" @submit="addItemSave" />
         </Dialog>
-        <Dialog v-model:visible="editItemDialogVisible" header="Edytuj grupę" class="w-11/12 lg:w-1/2" modal>
+        <Dialog v-model:visible="editItemDialogVisible" header="Edytuj typ alertu" class="w-11/12 lg:w-1/2" modal>
             <Form :initial-values="initialValues" :fields="editItemFields" @submit="editItemSave" />
         </Dialog>
-        <Dialog v-model:visible="advancedObjectViewVisible" header="Podgląd grupy" class="w-11/12 lg:w-3/4" modal
+        <Dialog v-model:visible="advancedObjectViewVisible" header="Podgląd typu alertu" class="w-11/12 lg:w-3/4" modal
             maximizable :pt="{ content: 'bg-emphasis rounded-b-xl pt-5' }">
             <ObjectView :item="showItem" :fieldMap="fieldMap" :complexFieldsColumns="complexFieldsColumns"></ObjectView>
         </Dialog>
@@ -45,74 +45,54 @@ const editItemDialogVisible = ref(false);
 const advancedObjectViewVisible = ref(false);
 const showItem = ref({});
 const fieldMap = ref({
-    name: { label: 'Nazwa grupy' },
-    Users: { label: 'Członkowie grupy' },
-    MapsAndElements: { label: 'Dostęp do map' }
+    name: { label: 'Nazwa typu' },
+    ElementsTypes: { label: 'Rodzaje elementów do których się odnosi' },
 });
 const complexFieldsColumns = ref({
-    Users: [
-        { label: 'UID', field: 'UID', dataKay: true, addToGlobalFilter: true },
-        { label: 'Login', field: 'login', addToGlobalFilter: true },
-        { label: 'Email', field: 'email', addToGlobalFilter: true }
-    ],
-    MapsAndElements: [
-        { label: 'EID', field: 'EID', dataKay: true, addToGlobalFilter: true },
-        { label: 'Nazwa mapy', field: 'name', addToGlobalFilter: true }
+    ElementsTypes: [
+        { label: 'ETID', field: 'ETID', dataKay: true, addToGlobalFilter: true },
+        { label: 'Nazwa elementu', field: 'name', addToGlobalFilter: true },
     ]
 })
-const mainKey = 'GID';
-const mainPath = '/groups';
+const mainKey = 'AAID';
+const mainPath = '/alertstypes';
 
 const initialValues = ref({});
 
 const addItemFields = ref([
     {
         name: 'name',
-        label: 'Nazwa grupy',
+        label: 'Nazwa typu alertu',
         component: 'InputText',
         componentOptions: {
             type: 'text',
         },
         conditions: [{
             check: "required",
-            message: "Nazwa grupy jest wymagana."
+            message: "Nazwa typu alertu jest wymagana."
         }, {
             check: "minlength",
             value: 3,
-            message: "Nazwa grupy musi zawierać co najmniej 3 znaki."
+            message: "Nazwa typu alertu musi zawierać co najmniej 3 znaki."
         }, {
             check: "maxlength",
-            value: 25,
-            message: "Nazwa grupy musi zawierać co najwyżej 25 znaków."
+            value: 30,
+            message: "Nazwa typu alertu musi zawierać co najwyżej 25 znaków."
         }]
     },
     {
-        name: 'userUIDs',
-        label: 'Lista użytkowników',
-        component: 'MultiSelect',
-        componentOptions: {
-            options: [],
-            optionLabel: "login",
-            display: "chip",
-            filter: true
-        },
-        conditions: [{
-            check: "required",
-            message: "Lista użytkowników jest wymagana."
-        }]
-    },
-    {
-        name: 'mapEIDs',
-        label: 'Lista map',
+        name: 'ETIDs',
+        label: 'Lista przypisanych rodzajów elementów',
         component: 'MultiSelect',
         componentOptions: {
             options: [],
             optionLabel: "name",
             display: "chip",
             filter: true
-        }, conditions: [{
+        },
+        conditions: [{
             check: "required",
-            message: "Lista map jest wymagana."
+            message: "Lista elementów jest wymagana."
         }]
     }
 ]);
@@ -121,7 +101,7 @@ const editItemFields = ref(addItemFields.value);
 
 
 const columns = ref([
-    { label: 'GID', field: 'GID', type: 'numeric', dataKey: true, show: false },
+    { label: 'AAID', field: 'AAID', type: 'numeric', dataKey: true, show: false },
     { label: 'Nazwa', field: 'name', type: 'text', addToGlobalFilter: true },
 ])
 
@@ -129,24 +109,14 @@ const loading = ref(true);
 
 onMounted(async () => {
     try {
-        let users = api.get('/users');
-        let maps = api.get('/mapsandelements');
-        let groups = api.get(mainPath);
+        let responseItems = api.get(mainPath);
+        let elementTypes = api.get('/elementstypes');
 
-        addItemFields.value.find(item => item.name === 'userUIDs').componentOptions.options = (await users).data.map(item => {
-            delete item.PersonalSettings_json;
-            return item;
-        });
-        addItemFields.value.find(item => item.name === 'mapEIDs').componentOptions.options = (await maps).data.map(item => {
-            delete item.ETID;
-            delete item.DimensionsAndStructure_json;
-            delete item.ParentEID
-            return item;
-        });
+        addItemFields.value.find(item => item.name === 'ETIDs').componentOptions.options = (await elementTypes).data;
 
-        items.value = (await groups).data;
+        items.value = (await responseItems).data;
     } catch (error) {
-        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych.'));
+        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych.', error));
     }
     loading.value = false;
 })
@@ -159,19 +129,19 @@ async function addItemSave(values) {
     let payload = Object.fromEntries(
         Object.entries(values.newObject.states).map(([key, obj]) => [key, obj.value])
     );
-    payload.userUIDs = payload.userUIDs.map(item => item.UID);
-    payload.mapEIDs = payload.mapEIDs.map(item => item.EID);
+    payload.ETIDs = payload.ETIDs.map(item => item.ETID);
 
     try {
         let response = await api.post(mainPath, payload);
 
+        delete response.data.ETIDs;
+
         items.value.push(response.data);
 
-        toast.add(toastHandler('success', 'Dodano grupę', 'Pomyślnie dodano grupę'));
+        toast.add(toastHandler('success', 'Dodano typ alertu', 'Pomyślnie dodano typ alertu'));
     } catch (error) {
-        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się dodać grupy', error));
+        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się dodać typu alertu.', error));
     }
-
 
     addItemDialogVisible.value = false;
 }
@@ -180,23 +150,21 @@ async function addItemSave(values) {
 
 async function editItem(item) {
     if (!item) {
-        toast.add(toastHandler('warn', 'Nie wybrano grupy', 'Wybierz grupę którą chcesz zmodyfikować'));
+        toast.add(toastHandler('warn', 'Nie wybrano typu alertu', 'Wybierz typ alertu który chcesz zmodyfikować'));
         return;
     }
 
     try {
         let response = await api.get(mainPath + '/' + item[mainKey]);
 
-        let userUIDs = response.data.Users;
-        delete response.data.Users;
-        let mapEIDs = response.data.MapsAndElements;
-        delete response.data.MapsAndElements;
-        let values = { ...response.data, userUIDs, mapEIDs };
+        let ETIDs = response.data.ElementsTypes;
+        delete response.data.ElementsTypes;
+        let values = { ...response.data, ETIDs };
 
         initialValues.value = values;
 
     } catch (error) {
-        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych grupy', error));
+        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych typu alertu.', error));
     }
 
     editItemDialogVisible.value = true;
@@ -207,23 +175,21 @@ async function editItemSave(values) {
     let payload = Object.fromEntries(
         Object.entries(values.newObject.states).map(([key, obj]) => [key, obj.value])
     );
-    payload.userUIDs = payload.userUIDs.map(item => item.UID);
-    payload.mapEIDs = payload.mapEIDs.map(item => item.EID);
+    payload.ETIDs = payload.ETIDs.map(item => item.ETID);
 
     try {
         await api.put(mainPath + '/' + values.originalObject[mainKey], payload);
 
-        delete payload.userUIDs;
-        delete payload.mapEIDs;
+        delete payload.ETIDs;
 
         let index = items.value.findIndex(item => item[mainKey] === values.originalObject[mainKey]);
-        if (index === -1) throw new Error("Nie znaleziono użytkownika lokalnie.");
+        if (index === -1) throw new Error("Nie znaleziono typu alertu lokalnie.");
 
         Object.assign(items.value[index], payload);
 
-        toast.add(toastHandler('success', 'Zmodyfikowano grupę', 'Pomyślnie zmodyfikowano grupę'));
+        toast.add(toastHandler('success', 'Zmodyfikowano typ alertu', 'Pomyślnie zmodyfikowano typ alertu'));
     } catch (error) {
-        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się zmodyfikować grupy.', error));
+        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się zmodyfikować typu alertu.', error));
     }
 
     editItemDialogVisible.value = false;
@@ -231,24 +197,24 @@ async function editItemSave(values) {
 
 async function deleteItem(item) {
     if (!item) {
-        toast.add(toastHandler('warn', 'Nie wybrano grupy', 'Wybierz grupę którą chcesz usunąć'));
+        toast.add(toastHandler('warn', 'Nie wybrano typu alertu', 'Wybierz typ alertu który chcesz usunąć'));
         return;
     }
 
     try {
         await api.delete(mainPath + '/' + item[mainKey]);
         items.value.splice(items.value.indexOf(item), 1);
-        toast.add(toastHandler('success', 'Usunięto grupę', 'Pomyślnie usunięto grupę'));
+        toast.add(toastHandler('success', 'Usunięto typ alertu', 'Pomyślnie usunięto typ alertu'));
     } catch (error) {
-        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się usunąć grupy.', error));
+        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się usunąć typu alertu.', error));
     }
 }
 
 async function showAdvancedObjectView(data) {
     try {
-        let group = api.get(mainPath + '/' + data[mainKey]);
+        let item = api.get(mainPath + '/' + data[mainKey]);
 
-        showItem.value = (await group).data;
+        showItem.value = (await item).data;
         advancedObjectViewVisible.value = true;
     } catch (error) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych.', error));

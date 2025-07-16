@@ -46,7 +46,7 @@ router.post('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
     try {
-        const alertType = await AlertsTypes.findAll({
+        const alertType = await AlertsTypes.findOne({
             where: { AAID: req.params.id },
             include: [
                 {
