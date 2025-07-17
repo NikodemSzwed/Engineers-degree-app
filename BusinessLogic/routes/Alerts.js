@@ -132,7 +132,36 @@ router.get('/:id', async (req, res) => {
             type: db.QueryTypes.SELECT,
         });
 
-        let alert = rawData.map(row => Alerts.build(row, { isNewRecord: false }));
+        const AID = rawData.map(row => Alerts.build(row, { isNewRecord: false })).map(row => row.AID);
+        let alert = await Alerts.findAll({
+            attributes: {
+                include: [
+                    'AID',
+                    'AAID',
+                    'State',
+                    'date',
+                    [col('EID_MapsAndElement.Name'), 'EIDName'],
+                    [col('AA_AlertsTypes.Name'), 'AAName'],
+                ],
+            },
+            where: {
+                AID: { [Op.in]: AID },
+            },
+            include: [
+                {
+                    model: MapsAndElements,
+                    as: 'EID_MapsAndElement',
+                    attributes: [],
+                    duplicating: false,
+                },
+                {
+                    model: AlertsTypes,
+                    as: 'AA_AlertsTypes',
+                    attributes: [],
+                    duplicating: false,
+                },
+            ],
+        });
 
         if (alert.length == 1) alert = alert[0];
         res.json(alert);

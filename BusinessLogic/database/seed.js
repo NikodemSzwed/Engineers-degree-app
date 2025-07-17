@@ -2,6 +2,7 @@ const db = require('./db');
 const bcrypt = require('bcryptjs');
 
 const init = require('../models/init-models');
+const { DATE } = require('sequelize');
 const {
     ATtoETAssignment,
     Alerts,
@@ -123,6 +124,7 @@ async function seed() {
                 login: 'Administrator',
                 email: 'tak@wp.pl',
                 passwd: bcrypt.hashSync('ZAQ12wsx@#', 10),
+                PersonalSettings_json: '{"primaryColor":"green","darkMode":true}',
             },
             { login: 'Kierownik', email: 'tak2@wp.pl', passwd: bcrypt.hashSync('ZAQ12wsx@#', 10) },
         ]);
@@ -167,13 +169,15 @@ function generateOrders(startingOID, startingEID, amount) {
         }
     }
 
-    function getRandomDay() {
-        return Math.floor(Math.random() * 30) + 1;
+    function getRandomDay(start = 0) {
+        return Math.floor(Math.random() * (30 - start)) + start;
     }
 
     for (let i = 0; i < amount; i++) {
         let month = getRandomMonth();
-        let day = getRandomDay();
+        let day = 1;
+        if (month == 1) day = getRandomDay(new Date().getDate());
+        else day = getRandomDay();
         let deadline = new Date(Date.now() - 1000 * 60 * 60 * 24 * month * 30 + 1000 * 60 * 60 * 24 * 30);
         deadline.setDate(day);
 

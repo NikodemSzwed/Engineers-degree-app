@@ -141,6 +141,7 @@ router.put('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
     if (!req.decodedToken.admin) return res.status(403).json({ error: 'Unauthorized: Admin privileges required' });
+    if (req.params.id == 1) return res.status(403).json({ error: 'Unauthorized: Cannot delete main group' });
 
     try {
         await Groups.destroy({

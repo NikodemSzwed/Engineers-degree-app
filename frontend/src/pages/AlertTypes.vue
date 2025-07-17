@@ -202,8 +202,14 @@ async function deleteItem(item) {
     }
 
     try {
+        let index = items.value.indexOf(item);
+        if (index == -1) {
+            toast.add(toastHandler('warn', 'Nie wybrano typu alertu', 'Wybierz typ alertu który chcesz usunąć'));
+            return;
+        }
+
         await api.delete(mainPath + '/' + item[mainKey]);
-        items.value.splice(items.value.indexOf(item), 1);
+        items.value.splice(index, 1);
         toast.add(toastHandler('success', 'Usunięto typ alertu', 'Pomyślnie usunięto typ alertu'));
     } catch (error) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się usunąć typu alertu.', error));

@@ -23,7 +23,13 @@
             </template>
         </Card>
         <Dialog v-model:visible="addItemDialogVisible" header="Dodaj użytkownika" class="w-11/12 lg:w-1/3" modal>
-            <Form :fields="addItemFields" @submit="addItemSave" />
+            <Form :fields="addItemFields" @submit="addItemSave">
+                <template #input-custom="{ field, $field }">
+                    {{ field.label }} {{ $field }}
+                    <input type="text" v-model="$field.value" @input="$field.onInput" @blur="$field.onBlur"
+                        @change="$field.onChange">
+                </template>
+            </Form>
         </Dialog>
         <Dialog v-model:visible="editItemDialogVisible" header="Edytuj użytkownika" class="w-11/12 lg:w-1/3" modal>
             <Form :initial-values="initialValues" :fields="editItemFields" @submit="editItemSave" />
@@ -163,6 +169,11 @@ const addItemFields = ref([
             function: (values) => values.password !== values.passwordRepeat
         }]
     },
+    {
+        name: 'custom',
+        label: 'Ustawienia personalne',
+        component: 'custom',
+    }
 ]);
 
 const editItemFields = ref([

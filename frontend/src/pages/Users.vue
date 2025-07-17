@@ -3,9 +3,9 @@
         <Toast />
         <Card :pt="{ body: 'p-2 lg:p-5' }">
             <template #content>
-                <DataTable :items="items" :columns="columns" :advancedFiltersAvailable="true" :showInteractions="true"
-                    :loading="loading" @addItem="addItem" @editItem="editItem" @deleteItem="deleteItem"
-                    @showAdvancedObjectView="showAdvancedObjectView">
+                <DataTable :items="items" :columns="columns" :advancedInteractionsAvailable="true"
+                    :showInteractions="true" :loading="loading" @addItem="addItem" @editItem="editItem"
+                    @deleteItem="deleteItem" @showAdvancedObjectView="showAdvancedObjectView">
                 </DataTable>
             </template>
         </Card>
@@ -198,7 +198,7 @@ const editItemFields = ref([
                 return values.password !== values.passwordRepeat
             }
         }]
-    },
+    }
 ]);
 
 
@@ -291,8 +291,14 @@ async function deleteItem(item) {
     }
 
     try {
+        let index = items.value.indexOf(item);
+        if (index == -1) {
+            toast.add(toastHandler('warn', 'Nie wybrano użytkownika', 'Wybierz użytkownika którego chcesz usunąć'));
+            return;
+        }
+
         await api.delete(mainPath + '/' + item[mainKey]);
-        items.value.splice(items.value.indexOf(item), 1);
+        items.value.splice(index, 1);
         toast.add(toastHandler('success', 'Usunięto użytkownika', 'Pomyślnie usunięto użytkownika'));
     } catch (error) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się usunąć użytkownika.', error));

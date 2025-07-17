@@ -236,8 +236,14 @@ async function deleteItem(item) {
     }
 
     try {
+        let index = items.value.indexOf(item);
+        if (index == -1) {
+            toast.add(toastHandler('warn', 'Nie wybrano grupy', 'Wybierz grupę którą chcesz usunąć'));
+            return;
+        }
+
         await api.delete(mainPath + '/' + item[mainKey]);
-        items.value.splice(items.value.indexOf(item), 1);
+        items.value.splice(index, 1);
         toast.add(toastHandler('success', 'Usunięto grupę', 'Pomyślnie usunięto grupę'));
     } catch (error) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się usunąć grupy.', error));

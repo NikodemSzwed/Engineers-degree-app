@@ -3,13 +3,16 @@
         class="flex flex-col gap-4 w-full pt-1" fluid>
         <FormField v-for="(field, i) in props.fields" v-slot="$field" :name="field.name"
             :initialValue="field.initialValue" class="flex flex-col gap-1" :resolver="field.resolver">
-            <FloatLabel variant="on">
+            <FloatLabel variant="on" v-if="field.component !== 'custom'">
                 <component :is="componentsMap[field.component]" :id="'on_label' + i" autocomplete="off" fluid
                     v-bind="field.componentOptions" :invalid="$field?.invalid">
                 </component>
 
                 <label :for="'on_label' + i">{{ field.label }}</label>
             </FloatLabel>
+            <div v-else>
+                <slot :name="'input-' + field.name" v-bind="{ field, $field }"></slot>
+            </div>
             <Message v-if="$field?.invalid" v-for="err in $field?.errors" severity="error" size="small"
                 variant="simple">
                 {{ err.message }}
@@ -24,12 +27,15 @@
 import { ref } from 'vue';
 import { Form } from '@primevue/forms';
 import { FormField } from '@primevue/forms';
-import { InputText, Button, FloatLabel, Password, Message, MultiSelect } from 'primevue';
+import { InputText, Button, FloatLabel, Password, Message, MultiSelect, Select, InputNumber, DatePicker } from 'primevue';
 
 const componentsMap = {
     InputText,
     Password,
-    MultiSelect
+    MultiSelect,
+    Select,
+    InputNumber,
+    DatePicker
 };
 
 const props = defineProps({
@@ -68,7 +74,7 @@ const globalResolver = ({ values }) => {
         let maxLengthDefined = false;
 
         for (const condition of field.conditions) {
-            if (!values[field.name] && !field.optional) {
+            if (!values[field.name] && values[field.name] != 0 && !field.optional) {
                 errors[field.name].push({ message: condition.message });
                 break;
             }

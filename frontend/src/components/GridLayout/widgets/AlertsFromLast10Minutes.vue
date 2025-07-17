@@ -7,7 +7,8 @@
         <template #filter-State="{ filterModel }">
             <MultiSelect v-model="filterModel.value" :options="statesSimplified" placeholder="Wybierz status">
                 <template #value="slotProps">
-                    <Tag v-for="state of slotProps.value" :severity="getSeverity(state)" :value="getMessage(state)">
+                    <Tag v-for="state of slotProps.value" :severity="getSeverity(state)" :value="getMessage(state)"
+                        class="mr-2">
                     </Tag>
                 </template>
                 <template #option="slotProps">

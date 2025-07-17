@@ -31,6 +31,7 @@
 import { ref, defineProps, onMounted } from 'vue';
 import { Card } from 'primevue';
 import DataTable from '../DataTable/DataTable.vue';
+import { format } from 'date-fns';
 
 const props = defineProps({
     item: {
@@ -59,11 +60,18 @@ onMounted(() => {
     localItemSimpleFields.value = Object.entries(localItem.value)
         .filter(([key, value]) => typeof value !== 'object' && !key.includes('_json') && (props.fieldMap[key]?.show ?? true))
         .map(([key, value]) => {
-            return { key: props.fieldMap[key]?.label || key, value };
+            let val = value;
+            if (props.fieldMap[key]?.date) val = formatDate(value, props.fieldMap[key]?.format || 'dd.MM.yyyy HH:mm');
+            else if (props.fieldMap[key]?.boolean) val = value ? 'Tak' : 'Nie';
+            else if (props.fieldMap[key]?.translateValue) val = props.fieldMap[key].translateValue(value);
+
+
+            return { key: props.fieldMap[key]?.label || key, value: val };
         });
     localItemComplexFields.value = Object.entries(localItem.value)
         .filter(([key, value]) => typeof value === 'object' && (props.fieldMap[key]?.show ?? true))
         .map(([key, value]) => ({ key, value }));
+    console.log("🚀 ~ onMounted ~ localItemComplexFields.value:", localItemComplexFields.value)
     localItemJsonFields.value = Object.entries(localItem.value)
         .filter(([key, value]) => key.includes('_json') && (props.fieldMap[key]?.show ?? true))
         .map(([key, value]) => ({ key, value: JSON.parse(value) }))
@@ -76,5 +84,9 @@ onMounted(() => {
             return { key: item.key, value: values }
         });
 })
+
+function formatDate(date, fmt = 'dd.MM.yyyy HH:mm') {
+    return format(new Date(date), fmt);
+}
 
 </script>
