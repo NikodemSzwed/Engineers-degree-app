@@ -31,9 +31,10 @@
                 <template #input-State="{ field, $field }">
                     <FloatLabel variant="on">
                         <Select v-model="$field.value" :id="'label' + field.name" :options="statesSimplified"
-                            placeholder="Wybierz status" v-bind="$field" fluid>
+                            v-bind="$field" fluid>
                             <template #value="slotProps">
-                                <Tag :severity="getSeverity(slotProps.value)" :value="getMessage(slotProps.value)">
+                                <Tag v-if="slotProps.value > -1" :severity="getSeverity(slotProps.value)"
+                                    :value="getMessage(slotProps.value)">
                                 </Tag>
                             </template>
                             <template #option="slotProps">
@@ -51,7 +52,7 @@
                 <template #input-State="{ field, $field }">
                     <FloatLabel variant="on">
                         <Select v-model="$field.value" :id="'label' + field.name" :options="statesSimplified"
-                            placeholder="Wybierz status" v-bind="$field" fluid>
+                            v-bind="$field" fluid>
                             <template #value="slotProps">
                                 <Tag :severity="getSeverity(slotProps.value)" :value="getMessage(slotProps.value)">
                                 </Tag>
@@ -147,6 +148,8 @@ const addItemFields = ref([
         label: 'Priorytet zlecenia',
         component: 'InputNumber',
         componentOptions: {
+            min: 1,
+            max: 255
         },
         conditions: [{
             check: "required",
@@ -166,7 +169,8 @@ const addItemFields = ref([
         label: 'Termin realizacji',
         component: 'DatePicker',
         componentOptions: {
-            type: 'date'
+            type: 'date',
+            dateFormat: 'dd.mm.yy',
         },
         conditions: [{
             check: "required",
@@ -229,7 +233,11 @@ onMounted(async () => {
 
         // addItemFields.value.find(item => item.name === 'ETIDs').componentOptions.options = (await elementTypes).data;
 
-        items.value = (await responseItems).data;
+        items.value = (await responseItems).data
+            .map(item => {
+                item.deadline = new Date(item.deadline);
+                return item;
+            });
     } catch (error) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych.', error));
     }
@@ -244,12 +252,11 @@ async function addItemSave(values) {
     let payload = Object.fromEntries(
         Object.entries(values.newObject.states).map(([key, obj]) => [key, obj.value])
     );
-    payload.ETIDs = payload.ETIDs.map(item => item.ETID);
+    payload.ParentEID = 3;
+    // payload.deadline = payload.deadline.toISOString();
 
     try {
         let response = await api.post(mainPath, payload);
-
-        delete response.data.ETIDs;
 
         items.value.push(response.data);
 
@@ -272,9 +279,8 @@ async function editItem(item) {
     try {
         let response = await api.get(mainPath + '/' + item[mainKey]);
 
-        let ETIDs = response.data.ElementsTypes;
-        delete response.data.ElementsTypes;
-        let values = { ...response.data, ETIDs };
+        response.data.deadline = new Date(response.data.deadline);
+        let values = { ...response.data };
 
         initialValues.value = values;
 
@@ -290,12 +296,11 @@ async function editItemSave(values) {
     let payload = Object.fromEntries(
         Object.entries(values.newObject.states).map(([key, obj]) => [key, obj.value])
     );
-    payload.ETIDs = payload.ETIDs.map(item => item.ETID);
+    payload.ParentEID = 3;
+    // payload.deadline = payload.deadline.toISOString();
 
     try {
         await api.put(mainPath + '/' + values.originalObject[mainKey], payload);
-
-        delete payload.ETIDs;
 
         let index = items.value.findIndex(item => item[mainKey] === values.originalObject[mainKey]);
         if (index === -1) throw new Error("Nie znaleziono typu alertu lokalnie.");

@@ -10,9 +10,10 @@ import Alerts from '@/pages/Alerts.vue';
 import AlertTypes from '@/pages/AlertTypes.vue';
 import Users from '@/pages/Users.vue';
 import Groups from '@/pages/Groups.vue';
+import Settings from '../pages/Settings.vue';
 import NotFound from '@/views/NotFound.vue';
 import MainView from '../views/MainView.vue';
-import Settings from '../pages/Settings.vue';
+import Display from '@/views/Display.vue';
 
 const routes = [
     {
@@ -64,6 +65,12 @@ const routes = [
             { path: 'settings', name: 'Settings', component: Settings, meta: { icon: 'pi pi-cog' } },
         ],
         meta: { requiresAuth: true },
+    },
+    {
+        path: '/display',
+        name: 'Display',
+        component: Display,
+        meta: { requiresAuth: false },
     },
     {
         path: '/:pathMatch(.*)*',

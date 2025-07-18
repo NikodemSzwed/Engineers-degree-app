@@ -27,7 +27,7 @@
                     </div>
                 </template>
                 <template #content>
-                    <div class="flex flex-col items-center gap-3 p-5">
+                    <div class="flex flex-col items-center gap-3 px-5 pt-5">
                         <div class="flex flex-col items-center gap-1 text-sm text-surface-500">
                             <div>Witaj w systemie Warehouse Logistics.</div>
                             <div> Zaloguj się aby przejść dalej!</div>
@@ -37,6 +37,11 @@
                         </Form>
                         <Button label="zaloguj" class="w-fit" @click="login('Administrator', 'ZAQ12wsx@#')"></Button>
                         <Button label="zaloguj2" class="w-fit" @click="login('Kierownik', 'ZAQ12wsx@#')"></Button>
+
+                        <div class="py-3 flex flex-col items-center text-sm text-primary-500 cursor-pointer"
+                            @click="registerDevice">
+                            <div>Zarejestruj urządzenie jako monitor</div>
+                        </div>
                     </div>
 
                 </template>
@@ -60,6 +65,7 @@ import Form from '../components/Form/Form.vue';
 import Toast from 'primevue/toast';
 import { useToast } from 'primevue';
 import { toggleDarkMode } from '../services/themeChanger.js';
+import router from '../router/index.js';
 
 const color = ref('var(--color-primary)');
 const toast = useToast();
@@ -112,5 +118,9 @@ async function onFormSubmit(values) {
 function darkModeChange() {
     darkMode.value = !darkMode.value;
     toggleDarkMode(darkMode.value);
+}
+
+function registerDevice() {
+    router.push('/Display');
 }
 </script>

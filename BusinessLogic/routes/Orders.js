@@ -1,6 +1,7 @@
 const express = require('express');
 const getAllowedMaps = require('../functions/getTokenData.js').getAllowedMaps;
 const db = require('../database/db');
+const { Op, col } = require('sequelize');
 const router = express.Router();
 const removePKandFieldsNotInModel = require('../functions/removePKandFieldsNotInModel.js');
 const models = require('../database/getModels.js')();
@@ -104,8 +105,9 @@ router.get('/', async (req, res) => {
             SELECT me.* FROM MapsAndElements me
             INNER JOIN MapElements ON me.ParentEID = MapElements.EID
           )
-          SELECT Orders.*,name FROM MapElements
+          SELECT Orders.*,me.name as name,mep.name as ParentEIDName FROM MapElements me
           INNER JOIN Orders USING(EID)
+          INNER JOIN MapElements mep ON me.ParentEID = mep.EID
           WHERE (:startDate IS NULL OR deadline >= :startDate)
           AND (:endDate IS NULL OR deadline < :endDate);
         `;
@@ -130,14 +132,43 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
     try {
         let allowedMaps = getAllowedMaps(req.cookies['WarehouseLogisticsToken']);
+        // const orders = await Orders.findByPk(req.params.id, {
+        //     where: {
+        //         OID: req.params.id,
+        //     },
+        //     include: {
+        //         model: MapsAndElements,
+        //         as: 'EID_MapsAndElement',
+        //         required: true,
+        //     },
+        // });
         const orders = await Orders.findByPk(req.params.id, {
+            attributes: {
+                include: [
+                    'OID',
+                    'EID',
+                    'State',
+                    'Priority',
+                    'deadline',
+                    [col('EID_MapsAndElement.Name'), 'name'],
+                    [col('EID_MapsAndElement.ParentE.Name'), 'ParentEIDName'],
+                ],
+            },
             where: {
                 OID: req.params.id,
             },
             include: {
                 model: MapsAndElements,
                 as: 'EID_MapsAndElement',
+                attributes: [],
+                duplicating: false,
                 required: true,
+                include: {
+                    model: MapsAndElements,
+                    as: 'ParentE',
+                    attributes: [],
+                    duplicating: false,
+                },
             },
         });
 
@@ -146,6 +177,7 @@ router.get('/:id', async (req, res) => {
         }
         res.json(orders);
     } catch (error) {
+        console.log('🚀 ~ router.get ~ error:', error);
         res.status(500).json({ error: 'Failed to retrieve orders by OID', msg: error });
     }
 });

@@ -191,7 +191,6 @@ const columns = ref([
         dateFormat: 'dd.MM.yyyy',
         showTime: true,
         timeFormat: 'HH:mm',
-        noFilter: true,
         sortOptions: { order: -1 }
     },
 ])
@@ -206,7 +205,10 @@ onMounted(async () => {
         columns.value.find(item => item.field === 'AAName').options = (await alertsTypes).data.map(item => item.name);
         // addItemFields.value.find(item => item.name === 'AAID').componentOptions.options = (await alertsTypes).data;
 
-        items.value = (await responseItems).data;
+        items.value = (await responseItems).data.map(item => {
+            item.date = new Date(item.date);
+            return item;
+        });
     } catch (error) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych.', error));
     }
