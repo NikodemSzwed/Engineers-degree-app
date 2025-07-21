@@ -11,6 +11,7 @@ const Orders = models.Orders;
 const Deliveries = models.Deliveries;
 const Alerts = models.Alerts;
 const AlertsTypes = models.AlertsTypes;
+const ElementsTypes = models.ElementsTypes;
 
 router.get('/', async (req, res) => {
     if (!req.decodedToken.admin) return res.status(403).json({ error: 'Unauthorized: Admin privileges required' });
@@ -123,12 +124,14 @@ async function dataGetter(query, id) {
 
     let orders = display?.MapsAndElements?.flatMap(map => map.Orders) || [];
     let alerts = display?.MapsAndElements?.flatMap(map => map.Alerts) || [];
-    display = display.dataValues;
-    display['Orders'] = orders;
-    display['Alerts'] = alerts;
-    display['MapsAndElements'] = displayElements.map(element => {
-        return { ...element.dataValues };
-    });
+    display = display?.dataValues;
+    if (display) {
+        display['Orders'] = orders;
+        display['Alerts'] = alerts;
+        display['MapsAndElements'] = displayElements.map(element => {
+            return { ...element.dataValues };
+        });
+    }
 
     return display;
 }
@@ -175,6 +178,16 @@ router.get('/remote/:uuid', async (req, res) => {
         `;
 
         let display = await dataGetter(query, req.params.uuid);
+        let alertTypes = await AlertsTypes.findAll({
+            include: {
+                model: ElementsTypes,
+                required: false,
+                attributes: ['ETID'],
+                through: { attributes: [] },
+            },
+        });
+        if (display) display['AlertsTypes'] = alertTypes;
+        else res.status(404).json({ error: 'Display not found' });
 
         res.json(display);
     } catch (error) {

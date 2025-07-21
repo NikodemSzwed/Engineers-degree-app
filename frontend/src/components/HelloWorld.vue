@@ -1,15 +1,26 @@
 <script setup>
-    import { ref } from 'vue';
+import { ref } from 'vue';
+import { inject, onMounted } from "vue";
 
-    defineProps({
-        msg: String,
-    });
+const dialogRef = inject('dialogRef');
+const params = ref({});
 
-    const count = ref(0);
+onMounted(() => {
+    console.log("🚀 ~ onMounted ~ dialogRef:", dialogRef)
+    params.value = dialogRef.value.data; // {user: 'primetime'}
+})
+
+
+defineProps({
+    msg: String,
+});
+
+const count = ref(0);
 </script>
 
 <template>
-    <h1>{{ msg }}</h1>
+    <h1>msg:{{ msg }}</h1>
+    <h1>msg2:{{ params.msg }}</h1>
 
     <div class="card">
         <button type="button" @click="count++">count is {{ count }}</button>
@@ -23,16 +34,15 @@
 
     <p>
         Learn more about IDE Support for Vue in the
-        <a href="https://vuejs.org/guide/scaling-up/tooling.html#ide-support" target="_blank"
-            >Vue Docs Scaling up Guide</a
-        >.
+        <a href="https://vuejs.org/guide/scaling-up/tooling.html#ide-support" target="_blank">Vue Docs Scaling up
+            Guide</a>.
     </p>
 
     <p class="read-the-docs">Click on the Vite and Vue logos to learn more</p>
 </template>
 
 <style scoped>
-    .read-the-docs {
-        color: #888;
-    }
+.read-the-docs {
+    color: #888;
+}
 </style>

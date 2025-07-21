@@ -65,6 +65,9 @@ import Menubar from 'primevue/menubar';
 import Avatar from 'primevue/avatar';
 import Menu from 'primevue/menu';
 import { logout } from '../services/authFunctions';
+import { onMounted } from 'vue';
+import { loadTheme, loadDefaultTheme } from '../services/themeChanger';
+import api from '../services/api';
 
 const sidebarVisible = ref(false);
 const userData = useUserStore();
@@ -105,4 +108,19 @@ const items = ref([
         },
     },
 ]);
+
+onMounted(async () => {
+    try {
+        const response = await api.post('/users/refresh');
+
+        const userData = useUserStore();
+
+        userData.personalSettings = JSON.parse(response.data.personalSettings);
+        loadTheme();
+
+    } catch (error) {
+        console.log('Refresh failed');
+        loadDefaultTheme();
+    }
+});
 </script>

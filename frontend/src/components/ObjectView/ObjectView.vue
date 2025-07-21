@@ -71,7 +71,6 @@ onMounted(() => {
     localItemComplexFields.value = Object.entries(localItem.value)
         .filter(([key, value]) => typeof value === 'object' && (props.fieldMap[key]?.show ?? true))
         .map(([key, value]) => ({ key, value }));
-    console.log("🚀 ~ onMounted ~ localItemComplexFields.value:", localItemComplexFields.value)
     localItemJsonFields.value = Object.entries(localItem.value)
         .filter(([key, value]) => key.includes('_json') && (props.fieldMap[key]?.show ?? true))
         .map(([key, value]) => ({ key, value: JSON.parse(value) }))
