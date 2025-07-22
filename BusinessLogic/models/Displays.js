@@ -12,6 +12,7 @@ module.exports = function (sequelize, DataTypes) {
             name: {
                 type: DataTypes.TEXT,
                 allowNull: true,
+                defaultValue: 'New Display',
             },
             UUID: {
                 type: DataTypes.TEXT,

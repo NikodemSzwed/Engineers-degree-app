@@ -175,6 +175,7 @@ async function editItem(item) {
         let values = { ...response.data };
 
         initialValues.value = values;
+        console.log("🚀 ~ editItem ~ initialValues.value:", initialValues.value)
 
     } catch (error) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych monitora.', error));
@@ -184,6 +185,7 @@ async function editItem(item) {
 
 }
 
+
 async function editItemSave(values) {
     let payload = Object.fromEntries(
         Object.entries(values.newObject.states).map(([key, obj]) => [key, obj.value])
@@ -192,8 +194,11 @@ async function editItemSave(values) {
     try {
         await api.put(mainPath + '/' + values.originalObject[mainKey], payload);
 
-
+        console.log("🚀 ~ editItemSave ~ values.originalObject[mainKey]:", values)
+        console.log("🚀 ~ editItemSave ~ mainKey:", mainKey)
+        console.log("🚀 ~ editItemSave ~ items:", items)
         let index = items.value.findIndex(item => item[mainKey] === values.originalObject[mainKey]);
+
         if (index === -1) throw new Error("Nie znaleziono monitora lokalnie.");
 
         Object.assign(items.value[index], payload);
@@ -202,6 +207,8 @@ async function editItemSave(values) {
     } catch (error) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się zmodyfikować monitora.', error));
     }
+
+
 
     editItemDialogVisible.value = false;
 }
@@ -233,6 +240,7 @@ async function showAdvancedObjectView(data) {
         let item = api.get(mainPath + '/' + data[mainKey]);
 
         showItem.value = (await item).data;
+        console.log("🚀 ~ showAdvancedObjectView ~ showItem.value:", showItem.value)
         advancedObjectViewVisible.value = true;
     } catch (error) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych.', error));

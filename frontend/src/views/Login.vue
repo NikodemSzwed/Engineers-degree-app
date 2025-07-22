@@ -57,7 +57,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import Button from 'primevue/button';
 import { login } from '../services/authFunctions.js';
 import Card from 'primevue/card';
@@ -65,10 +65,13 @@ import Form from '../components/Form/Form.vue';
 import Toast from 'primevue/toast';
 import { useToast } from 'primevue';
 import { toggleDarkMode } from '../services/themeChanger.js';
-import router from '../router/index.js';
+import { useRouter } from 'vue-router';
+import api from '../services/api.js';
+import { loadDefaultTheme } from '../services/themeChanger';
 
 const color = ref('var(--color-primary)');
 const toast = useToast();
+const router = useRouter();
 
 const darkMode = ref(document.documentElement.classList.contains('dark'));
 
@@ -120,7 +123,27 @@ function darkModeChange() {
     toggleDarkMode(darkMode.value);
 }
 
-function registerDevice() {
+async function registerDevice() {
+    try {
+        let response = await api.post('/displays/register');
+
+        localStorage.setItem('displayUUID', response.data.UUID);
+    } catch (error) {
+        toast.add({
+            severity: 'error',
+            summary: 'Wystąpił problem',
+            detail: error.message,
+            life: 6000
+        });
+    }
+
     router.push('/Display');
 }
+
+onMounted(() => {
+    loadDefaultTheme();
+
+    if (localStorage.getItem('displayUUID'))
+        router.push('/Display');
+});
 </script>
