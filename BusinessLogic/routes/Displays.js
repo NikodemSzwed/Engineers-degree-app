@@ -229,6 +229,7 @@ router.post('/remote/createAlert/:uuid', async (req, res) => {
             AAID: req.body.AAID,
         });
 
+        io.emit('newAlert', alert);
         res.json(alert);
     } catch (error) {
         res.status(500).json({ error: 'Failed to retrieve display', details: error.message });

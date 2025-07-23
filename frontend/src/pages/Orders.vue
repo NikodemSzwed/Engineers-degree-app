@@ -258,7 +258,14 @@ async function addItemSave(values) {
     try {
         let response = await api.post(mainPath, payload);
 
-        items.value.push(response.data);
+        let order = response.data.newOrder;
+        order.deadline = new Date(response.data.newOrder.deadline);
+        order.name = response.data.newElement.name;
+
+        let parent = await api.get('/mapsandelements/singleObject/' + response.data.newElement.ParentEID);
+        order.ParentEIDName = parent.data.name;
+
+        items.value.push(order);
 
         toast.add(toastHandler('success', 'Dodano typ alertu', 'Pomyślnie dodano typ alertu'));
     } catch (error) {

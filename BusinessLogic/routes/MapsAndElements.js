@@ -38,6 +38,27 @@ router.get('/sectors', async (req, res) => {
     }
 });
 
+router.get('/singleObject/:id', async (req, res) => {
+    try {
+        let allowedMaps = getAllowedMaps(req.cookies['WarehouseLogisticsToken']);
+        const maps = await MapsAndElements.findOne({
+            where: {
+                EID: req.params.id,
+                [Op.or]: [
+                    { EID: { [Op.in]: allowedMaps } },
+                    {
+                        ETID: 3,
+                        ParentEID: { [Op.in]: allowedMaps },
+                    },
+                ],
+            },
+        });
+        res.json(maps);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to retrieve maps', details: error.message });
+    }
+});
+
 router.get('/:id', async (req, res) => {
     try {
         let allowedMaps = getAllowedMaps(req.cookies['WarehouseLogisticsToken']);

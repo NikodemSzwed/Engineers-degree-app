@@ -1,6 +1,7 @@
 const express = require('express');
 const getAllowedMaps = require('../functions/getTokenData.js').getAllowedMaps;
 const router = express.Router();
+const { io } = require('../server/server');
 const { Op, col } = require('sequelize');
 const models = require('../database/getModels.js')();
 const db = require('../database/db');
@@ -45,6 +46,8 @@ router.post('/', async (req, res) => {
 
         const newAlert = await Alerts.create(removePKandFieldsNotInModel(req.body, Alerts));
         res.status(201).json(newAlert);
+
+        io.emit('newAlert', newAlert);
     } catch (error) {
         res.status(500).json({ error: 'Failed to create alert', details: error.message });
     }
@@ -213,12 +216,15 @@ router.put('/:id', async (req, res) => {
             return res.status(403).json({ error: 'You are not allowed to check some or all of those elements' });
         }
 
-        alert = await Alerts.update(removePKandFieldsNotInModel(req.body, Alerts), {
+        let alertCount = await Alerts.update(removePKandFieldsNotInModel(req.body, Alerts), {
             where: {
                 AID: req.params.id,
             },
         });
-        res.json(alert);
+        res.json(alertCount);
+        alert = await Alerts.findByPk(req.params.id);
+
+        io.emit('updateAlert', alert);
     } catch (error) {
         res.status(500).json({ error: 'Failed to update alert', details: error.message });
     }
@@ -244,6 +250,7 @@ router.delete('/:id', async (req, res) => {
         });
 
         res.status(204).end();
+        io.emit('deleteAlert', alert);
     } catch (error) {
         res.status(500).json({ error: 'Failed to delete alert', details: error.message });
     }

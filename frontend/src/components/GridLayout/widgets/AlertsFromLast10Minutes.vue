@@ -40,6 +40,7 @@ import api from '../../../services/api';
 import DataTable from '@/components/DataTable/DataTable.vue';
 import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
 import { Tag, MultiSelect } from 'primevue';
+import { connect } from '../../../services/websocket';
 
 const states = [
     { name: 'Nowy', value: 0, severity: 'danger' },
@@ -48,6 +49,7 @@ const states = [
 ];
 const statesSimplified = [0, 1, 2];
 const loading = ref(true);
+const socket = connect();
 
 const columns = ref([
     { label: 'AID', field: 'AID', type: 'numeric', dataKey: true, show: false },
@@ -98,11 +100,25 @@ onMounted(async () => {
             item.date = new Date(item.date);
             return item;
         });
+        console.log("🚀 ~ onMounted ~ items.value:", items.value)
 
     } catch (error) {
         console.log("🚀 ~ onMounted ~ error:", error);
     }
     loading.value = false;
+
+    socket.on('newAlert', async (data) => {
+        console.log("🚀 ~ socket.on ~ data:", data)
+        data.date = new Date();
+        items.value.push(data);
+
+    });
+    socket.on('updateAlert', (data) => {
+
+    });
+    socket.on('deleteAlert', (data) => {
+
+    });
 
     if (cleanItemsIntervalId) clearInterval(cleanItemsIntervalId);
     cleanItemsIntervalId = setInterval(() => {
@@ -113,6 +129,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
     clearInterval(cleanItemsIntervalId);
+    socket.disconnect();
 })
 
 function getSeverity(state) {

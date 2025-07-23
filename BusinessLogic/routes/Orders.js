@@ -1,6 +1,7 @@
 const express = require('express');
 const getAllowedMaps = require('../functions/getTokenData.js').getAllowedMaps;
 const db = require('../database/db');
+const { io } = require('../server/server');
 const { Op, col } = require('sequelize');
 const router = express.Router();
 const removePKandFieldsNotInModel = require('../functions/removePKandFieldsNotInModel.js');
@@ -55,10 +56,14 @@ router.post('/', async (req, res) => {
         });
 
         await transaction.commit();
-        res.json({
+        const order = {
             newOrder,
             newElement,
-        });
+        };
+        res.json(order);
+
+        io.to('order-' + req.body.EID).emit('newOrder', order);
+        io.to('sector-' + req.body.ParentEID).emit('updateSectorNewOrder', order);
     } catch (error) {
         if (transaction) await transaction.rollback();
         res.status(500).json({ error: `Failed to create order: ${error}` });
@@ -215,6 +220,15 @@ router.put('/:id', async (req, res) => {
             updatedOrder,
             updatedMapsFromOrderUpdate,
         });
+
+        let orderElement = await MapsAndElements.findByPk(order.EID);
+        const fullOrder = {
+            order,
+            orderElement,
+        };
+
+        io.to('order-' + order.EID).emit('updateOrder', fullOrder);
+        io.to('sector-' + orderElement.ParentEID).emit('updateSectorUpdateOrder', fullOrder);
     } catch (error) {
         if (transaction) await transaction.rollback();
         res.status(500).json({ error: 'Failed to update order', msg: error });
@@ -235,6 +249,8 @@ router.delete('/:id', async (req, res) => {
             return res.status(403).json({ error: 'You are not allowed to check some or all of those elements' });
         }
 
+        const orderElement = await MapsAndElements.findByPk(order.EID);
+
         let x = await MapsAndElements.destroy({
             where: {
                 EID: order.EID,
@@ -243,6 +259,14 @@ router.delete('/:id', async (req, res) => {
         });
         await transaction.commit();
         res.status(204).json(x);
+
+        const fullOrder = {
+            order,
+            orderElement,
+        };
+
+        io.to('order-' + req.params.id).emit('deleteOrder', fullOrder);
+        io.to('sector-' + orderElement.ParentEID).emit('updateSectorDeleteOrder', fullOrder);
     } catch (error) {
         if (transaction) await transaction.rollback();
         console.log('🚀 ~ router.delete ~ error:', error);

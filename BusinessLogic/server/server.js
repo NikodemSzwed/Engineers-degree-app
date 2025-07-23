@@ -27,8 +27,11 @@ const io = new Server(server, {
 
 io.on('connection', socket => {
     socket.on('join', roomId => {
-        socket.join(roomId);
-        console.log(`Socket ${socket.id} listens for updates on ${roomId}`);
+        if (!socket.rooms.has(roomId)) {
+            socket.join(roomId);
+            console.log(`Socket ${socket.id} listens for updates on ${roomId}`);
+        }
+        console.log('🚀 ~ socket.rooms:', socket.rooms);
     });
 
     socket.on('leave', roomId => {

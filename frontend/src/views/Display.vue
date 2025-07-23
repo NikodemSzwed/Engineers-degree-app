@@ -195,7 +195,7 @@ import { Tag, Dialog } from 'primevue';
 import api from '../services/api.js';
 import { loadDefaultTheme } from '../services/themeChanger';
 import { useRouter } from 'vue-router';
-import { socket } from '../services/websocket';
+import { connect } from '../services/websocket';
 
 const toast = useToast();
 const router = useRouter();
@@ -204,10 +204,11 @@ const dockVisible = ref(false);
 const selectedItem = ref(null);
 const showItem = ref({});
 const itemDialog = ref(false);
-const displayUUID = ref();
+// const displayUUID = ref();
 const validated = ref(false);
-const displayName = ref(null)
-// const displayUUID = true ? '8c029a90-074a-4f24-a2d0-d80cad6338f5' : 'f3c10244-b6eb-4267-abce-6e2809446b5c';
+const displayName = ref(null);
+const socket = connect();
+const displayUUID = ref(true ? '8c029a90-074a-4f24-a2d0-d80cad6338f5' : 'f3c10244-b6eb-4267-abce-6e2809446b5c');
 
 const items = ref([]);
 const orderFields = ref([
@@ -231,97 +232,152 @@ const orderFields = ref([
 const alertTypes = ref([]);
 let allAlertTypes = [];
 
+function runAfter10MinOfInactivity(callback) {
+    let timeoutId;
+    const events = [
+        'click',
+        'keydown',
+        'mousemove',
+        'scroll',
+        'touchstart',
+        'wheel',
+        'pointerdown'
+    ];
+
+    function resetTimer() {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(callback, 2 * 60 * 1000);
+    }
+
+    events.forEach(event => {
+        window.addEventListener(event, resetTimer, { passive: true });
+    });
+
+    resetTimer();
+
+    return function stop() {
+        clearTimeout(timeoutId);
+        events.forEach(event => {
+            window.removeEventListener(event, resetTimer);
+        });
+    };
+}
+
+
+const stopInactivityWatcher = runAfter10MinOfInactivity(() => {
+    selectObject(null);
+    itemDialog.value = false;
+});
 
 onMounted(async () => {
     loadDefaultTheme();
 
-    displayUUID.value = localStorage.getItem('displayUUID');
+    await getData();
+
+    console.log("🚀 ~ items:", items.value)
 
     socket.emit('join', 'UUID-' + displayUUID.value);
     socket.on('updateDisplay', (data) => {
         console.log("🚀 ~ socket.on ~ data:", data)
-        validated.value = data.validated;
-        displayName.value = data.name;
+        getData();
     });
     socket.on('deleteDisplay', (data) => {
         socket.emit('leave', 'UUID-' + displayUUID.value);
         localStorage.removeItem('displayUUID');
         router.push('/Login');
     });
+    socket.on('updateSector', (data) => {
+        console.log("🚀 ~ socket.on ~ updateSector data:", data)
+    });
+    socket.on('updateSectorNewOrder', (data) => {
+        data.newElement.alerts = [];
+        data.newElement.newAlertPresent = false;
+        items.value.find(item => item.EID == data.newElement.ParentEID).orders.push(data.newElement);
 
-    try {
-        let response = await api.get('/displays/remote/' + displayUUID.value);
-        validated.value = true
-        let data = response.data;
-        displayName.value = data.name;
-
-        allAlertTypes = data.AlertsTypes;
-        items.value = data.DisplayElementsAssignments.map(item => {
-            let element = data.MapsAndElements.find(el => el.EID == item.EID);
-
-            if (!element) return;
-
-            if (element.ETID == 1) {
-                let sectors = data.MapsAndElements.filter(el => el.ParentEID == element.EID);
-                let orders = data.MapsAndElements.filter(el => sectors.some(sector => sector.EID === el.ParentEID));
-                let allEIDs = [...sectors.map(el => el.EID), ...orders.map(el => el.EID), element.EID];
-
-
-                return {
-                    label: 'Mapa: ' + element.name,
-                    ETID: element.ETID,
-                    EID: element.EID,
-                    data: {
-                        ...element,
-                        newAlertPresent: element.alerts.find(el => el.State == 0) ? true : false
-                    }
-                }
-            } else if (element.ETID == 2) {
-                let moreData = data.Orders.find(el => el.EID == element.EID);
-                return {
-                    label: 'Zlecenie: ' + element.name,
-                    ETID: element.ETID,
-                    EID: element.EID,
-                    data: {
-                        ...element,
-                        ...moreData,
-                        newAlertPresent: element.alerts.find(el => el.State == 0) ? true : false
-                    }
-                }
-            } else {
-                let orders = data.MapsAndElements.filter(el => el.ParentEID == element.EID);
-                orders = orders.map(order => {
-                    let found = order.alerts.find(el => el.State == 0)
-                    order.newAlertPresent = found ? true : false;
-                    return order;
-                });
-                return {
-                    label: 'Sektor: ' + element.name,
-                    ETID: element.ETID,
-                    EID: element.EID,
-                    data: {
-                        ...element,
-                        newAlertPresent: element.alerts.find(el => el.State == 0) ? true : false
-                    },
-                    orders
-                }
+    });
+    socket.on('updateSectorUpdateOrder', (data) => {
+        Object.assign(items.value.find(item => item.EID == data.orderElement.ParentEID).orders.find(el => el.EID == data.orderElement.EID), data.orderElement);
+    });
+    socket.on('updateSectorDeleteOrder', (data) => {
+        const parentItem = items.value.find(item => item.EID === data.orderElement.ParentEID);
+        if (parentItem) {
+            const index = parentItem.orders.findIndex(order => order.EID === data.orderElement.EID);
+            if (index !== -1) {
+                parentItem.orders.splice(index, 1);
             }
-        })
-    } catch (error) {
-        if (error.response.data.error == 'Display not found') {
-            localStorage.removeItem('displayUUID');
-            router.push('/Login');
         }
-        else if (error.response.data.error != "Display not validated") {
-            toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych.', error));
-        }
-    }
+    });
+    socket.on('newAlert', (data) => {
+        let item = items.value.find(item => item.EID == data.EID);
+        if (item) {
+            item.data.alerts.push(data);
+            item.data.newAlertPresent = true;
+        } else {
+            items.value.forEach(item => {
+                if (item?.orders.length > 0) {
+                    let order = item.orders.find(order => order.EID == data.EID);
+                    if (!order) return;
+                    order.alerts.push(data);
+                    order.newAlertPresent = true;
+                }
+            })
 
-    console.log("🚀 ~ items:", items.value)
+        }
+    });
+    socket.on('updateAlert', (data) => {
+        let item = items.value.find(item => item.EID == data.EID);
+        if (item) {
+
+            if (data.State == 2) item.data.alerts = item.data.alerts.filter(el => el.AID != data.AID);
+            else item.data.alerts.find(el => el.AID == data.AID).State = data.State;
+
+            if (item.data.alerts.length == 0) item.data.newAlertPresent = false;
+            else item.data.alerts.find(el => el.State == 0) ? item.data.newAlertPresent = true : item.data.newAlertPresent = false;
+        } else {
+            items.value.forEach(item => {
+                if (item?.orders.length > 0) {
+                    let order = item.orders.find(order => order.EID == data.EID);
+
+                    if (!order) return;
+
+                    if (data.State == 2) order.alerts = order.alerts.filter(el => el.AID != data.AID);
+                    else order.alerts.find(el => el.AID == data.AID).State = data.State;
+
+                    if (order.alerts.length == 0) order.newAlertPresent = false;
+                    else order.alerts.find(el => el.State == 0) ? order.newAlertPresent = true : order.newAlertPresent = false;
+                }
+            })
+
+        }
+    });
+    socket.on('deleteAlert', (data) => {
+        let item = items.value.find(item => item.EID == data.EID);
+        if (item) {
+            item.data.alerts = item.data.alerts.filter(el => el.AID != data.AID);
+            if (item.data.alerts.length == 0) item.data.newAlertPresent = false;
+            else item.data.alerts.find(el => el.State == 0) ? item.data.newAlertPresent = true : item.data.newAlertPresent = false;
+
+        } else {
+            items.value.forEach(item => {
+                if (item?.orders.length > 0) {
+                    let order = item.orders.find(order => order.EID == data.EID);
+
+                    if (!order) return;
+
+                    order.alerts = order.alerts.filter(el => el.AID != data.AID);
+                    if (order.alerts.length == 0) order.newAlertPresent = false;
+                    else order.alerts.find(el => el.State == 0) ? order.newAlertPresent = true : order.newAlertPresent = false;
+                }
+            })
+
+        }
+    });
 })
 
 onUnmounted(() => {
     socket.emit('leave', 'UUID-' + displayUUID.value);
+    socket.disconnect();
+    stopInactivityWatcher();
 })
 
 function selectObject(item) {
@@ -398,4 +454,80 @@ async function addAlert(alertType) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się dodać alertu.', error));
     }
 }
+
+async function getData() {
+    // displayUUID.value = localStorage.getItem('displayUUID');
+
+    try {
+        let response = await api.get('/displays/remote/' + displayUUID.value);
+        validated.value = true
+        let data = response.data;
+        displayName.value = data.name;
+
+        allAlertTypes = data.AlertsTypes;
+        items.value = data.DisplayElementsAssignments.map(item => {
+            let element = data.MapsAndElements.find(el => el.EID == item.EID);
+
+            if (!element) return;
+
+            if (element.ETID == 1) {
+                let sectors = data.MapsAndElements.filter(el => el.ParentEID == element.EID);
+                let orders = data.MapsAndElements.filter(el => sectors.some(sector => sector.EID === el.ParentEID));
+                let allEIDs = [...sectors.map(el => el.EID), ...orders.map(el => el.EID), element.EID];
+                sectors.forEach(sector => {
+                    socket.emit('join', 'sector-' + element.EID);
+                });
+                return {
+                    label: 'Mapa: ' + element.name,
+                    ETID: element.ETID,
+                    EID: element.EID,
+                    data: {
+                        ...element,
+                        newAlertPresent: element.alerts.find(el => el.State == 0) ? true : false
+                    }
+                }
+            } else if (element.ETID == 2) {
+                let moreData = data.Orders.find(el => el.EID == element.EID);
+                socket.emit('join', 'order-' + element.EID);
+                return {
+                    label: 'Zlecenie: ' + element.name,
+                    ETID: element.ETID,
+                    EID: element.EID,
+                    data: {
+                        ...element,
+                        ...moreData,
+                        newAlertPresent: element.alerts.find(el => el.State == 0) ? true : false
+                    }
+                }
+            } else {
+                let orders = data.MapsAndElements.filter(el => el.ParentEID == element.EID);
+                orders = orders.map(order => {
+                    let found = order.alerts.find(el => el.State == 0)
+                    order.newAlertPresent = found ? true : false;
+                    return order;
+                });
+                socket.emit('join', 'sector-' + element.EID);
+                return {
+                    label: 'Sektor: ' + element.name,
+                    ETID: element.ETID,
+                    EID: element.EID,
+                    data: {
+                        ...element,
+                        newAlertPresent: element.alerts.find(el => el.State == 0) ? true : false
+                    },
+                    orders
+                }
+            }
+        })
+    } catch (error) {
+        if (error.response.data.error == 'Display not found') {
+            localStorage.removeItem('displayUUID');
+            router.push('/Login');
+        }
+        else if (error.response.data.error != "Display not validated") {
+            toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych.', error));
+        }
+    }
+}
+
 </script>

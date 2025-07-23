@@ -113,7 +113,7 @@ const editItemFields = ref([
             message: "Nazwa monitora jest wymagana."
         }, {
             check: "minlength",
-            value: 3,
+            value: 1,
             message: "Nazwa monitora musi zawierać co najmniej 3 znaki."
         }]
     },
