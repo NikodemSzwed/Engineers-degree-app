@@ -1,7 +1,7 @@
 const express = require('express');
 const getAllowedMaps = require('../functions/getTokenData.js').getAllowedMaps;
 const router = express.Router();
-const { io } = require('../server/server');
+const { io, findObjectAndParents } = require('../server/server');
 const { Op, col } = require('sequelize');
 const models = require('../database/getModels.js')();
 const db = require('../database/db');
@@ -47,7 +47,17 @@ router.post('/', async (req, res) => {
         const newAlert = await Alerts.create(removePKandFieldsNotInModel(req.body, Alerts));
         res.status(201).json(newAlert);
 
-        io.emit('newAlert', newAlert);
+        let alertElement = await MapsAndElements.findByPk(newAlert.dataValues.EID);
+        let alertType = await AlertsTypes.findByPk(newAlert.dataValues.AAID);
+
+        newAlert.dataValues.AAName = alertType.dataValues.name;
+        newAlert.dataValues.EIDName = alertElement.dataValues.name;
+
+        let elements = await findObjectAndParents(newAlert.dataValues.EID);
+        elements.forEach(element => {
+            element = element.dataValues;
+            io.to('EID-' + element.EID).emit('newAlert', newAlert);
+        });
     } catch (error) {
         res.status(500).json({ error: 'Failed to create alert', details: error.message });
     }
@@ -223,8 +233,18 @@ router.put('/:id', async (req, res) => {
         });
         res.json(alertCount);
         alert = await Alerts.findByPk(req.params.id);
+        alert = alert.dataValues;
+        let alertElement = await MapsAndElements.findByPk(alert.EID);
+        let alertType = await AlertsTypes.findByPk(alert.AAID);
 
-        io.emit('updateAlert', alert);
+        alert.AAName = alertType.dataValues.name;
+        alert.EIDName = alertElement.dataValues.name;
+
+        let elements = await findObjectAndParents(alert.EID);
+        elements.forEach(element => {
+            element = element.dataValues;
+            io.to('EID-' + element.EID).emit('updateAlert', alert);
+        });
     } catch (error) {
         res.status(500).json({ error: 'Failed to update alert', details: error.message });
     }
@@ -250,7 +270,11 @@ router.delete('/:id', async (req, res) => {
         });
 
         res.status(204).end();
-        io.emit('deleteAlert', alert);
+        let elements = await findObjectAndParents(alert.dataValues.EID);
+        elements.forEach(element => {
+            element = element.dataValues;
+            io.to('EID-' + element.EID).emit('deleteAlert', alert);
+        });
     } catch (error) {
         res.status(500).json({ error: 'Failed to delete alert', details: error.message });
     }

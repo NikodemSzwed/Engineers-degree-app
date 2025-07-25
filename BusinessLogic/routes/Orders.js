@@ -1,7 +1,7 @@
 const express = require('express');
 const getAllowedMaps = require('../functions/getTokenData.js').getAllowedMaps;
 const db = require('../database/db');
-const { io } = require('../server/server');
+const { io, findObjectAndParents } = require('../server/server');
 const { Op, col } = require('sequelize');
 const router = express.Router();
 const removePKandFieldsNotInModel = require('../functions/removePKandFieldsNotInModel.js');
@@ -62,8 +62,19 @@ router.post('/', async (req, res) => {
         };
         res.json(order);
 
-        io.to('order-' + req.body.EID).emit('newOrder', order);
-        io.to('sector-' + req.body.ParentEID).emit('updateSectorNewOrder', order);
+        let elements = await findObjectAndParents(req.body.EID);
+        elements.forEach(element => {
+            element = element.dataValues;
+
+            let type = 'newOrder';
+            if (element.ETID == 1) {
+                type = 'updateMapNewOrder';
+            } else if (element.ETID == 3) {
+                type = 'updateSectorNewOrder';
+            }
+
+            io.to('EID-' + element.EID).emit(type, order);
+        });
     } catch (error) {
         if (transaction) await transaction.rollback();
         res.status(500).json({ error: `Failed to create order: ${error}` });
@@ -227,8 +238,19 @@ router.put('/:id', async (req, res) => {
             orderElement,
         };
 
-        io.to('order-' + order.EID).emit('updateOrder', fullOrder);
-        io.to('sector-' + orderElement.ParentEID).emit('updateSectorUpdateOrder', fullOrder);
+        let elements = await findObjectAndParents(order.EID);
+        elements.forEach(element => {
+            element = element.dataValues;
+
+            let type = 'updateOrder';
+            if (element.ETID == 1) {
+                type = 'updateMapUpdateOrder';
+            } else if (element.ETID == 3) {
+                type = 'updateSectorUpdateOrder';
+            }
+
+            io.to('EID-' + element.EID).emit(type, fullOrder);
+        });
     } catch (error) {
         if (transaction) await transaction.rollback();
         res.status(500).json({ error: 'Failed to update order', msg: error });
@@ -251,6 +273,8 @@ router.delete('/:id', async (req, res) => {
 
         const orderElement = await MapsAndElements.findByPk(order.EID);
 
+        let elements = await findObjectAndParents(order.EID);
+
         let x = await MapsAndElements.destroy({
             where: {
                 EID: order.EID,
@@ -265,8 +289,19 @@ router.delete('/:id', async (req, res) => {
             orderElement,
         };
 
-        io.to('order-' + req.params.id).emit('deleteOrder', fullOrder);
-        io.to('sector-' + orderElement.ParentEID).emit('updateSectorDeleteOrder', fullOrder);
+        elements.forEach(element => {
+            element = element.dataValues;
+            console.log('🚀 ~ element:', element);
+
+            let type = 'deleteOrder';
+            if (element.ETID == 1) {
+                type = 'updateMapDeleteOrder';
+            } else if (element.ETID == 3) {
+                type = 'updateSectorDeleteOrder';
+            }
+
+            io.to('EID-' + element.EID).emit(type, fullOrder);
+        });
     } catch (error) {
         if (transaction) await transaction.rollback();
         console.log('🚀 ~ router.delete ~ error:', error);

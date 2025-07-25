@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { io } = require('../server/server');
+const { io, findObjectAndParents } = require('../server/server');
 const removePKandFieldsNotInModel = require('../functions/removePKandFieldsNotInModel.js');
+const jwt = require('jsonwebtoken');
 const db = require('../database/db');
 const { Op } = require('sequelize');
 const models = require('../database/getModels.js')();
@@ -65,6 +66,59 @@ router.post('/register', async (req, res) => {
         res.json({ UUID: newDisplay.UUID });
     } catch (error) {
         res.status(500).json({ error: 'Failed to create display', details: error.message });
+    }
+});
+
+//nie wymaga uprawnień
+router.post('/login', async (req, res) => {
+    try {
+        const user = await Displays.findOne({
+            where: {
+                UUID: req.body.UUID,
+            },
+        });
+
+        if (!user) {
+            return res.status(401).json({ error: 'Invalid display' });
+        }
+
+        const displayEIDs = await Displays.findOne({
+            where: { UUID: req.body.UUID },
+            include: [
+                {
+                    model: DisplayElementsAssignment,
+                    as: 'DisplayElementsAssignments',
+                    required: false,
+                    attributes: ['EID'],
+                },
+                {
+                    model: MapsAndElements,
+                    required: false,
+                },
+            ],
+        });
+
+        const token = jwt.sign(
+            {
+                displayUUID: displayEIDs.UUID,
+                displayEIDs: displayEIDs.DisplayElementsAssignments.map(element => element.EID),
+            },
+            process.env.JWT_SECRET || 'secret',
+            { expiresIn: '1h' }
+        );
+
+        res.cookie('WarehouseLogisticsToken', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'Lax',
+            maxAge: 3600000,
+        });
+
+        return res.status(200).json({
+            message: 'Display login successful',
+        });
+    } catch (error) {
+        res.status(401).json({ error: 'Display logging error', details: error.message });
     }
 });
 
@@ -228,8 +282,18 @@ router.post('/remote/createAlert/:uuid', async (req, res) => {
             EID: req.body.EID,
             AAID: req.body.AAID,
         });
+        alert = alert.dataValues;
+        let alertElement = await MapsAndElements.findByPk(alert.EID);
+        let alertType = await AlertsTypes.findByPk(alert.AAID);
 
-        io.emit('newAlert', alert);
+        alert.AAName = alertType.dataValues.name;
+        alert.EIDName = alertElement.dataValues.name;
+
+        let elements = await findObjectAndParents(alert.EID);
+        elements.forEach(element => {
+            element = element.dataValues;
+            io.to('EID-' + element.EID).emit('newAlert', alert);
+        });
         res.json(alert);
     } catch (error) {
         res.status(500).json({ error: 'Failed to retrieve display', details: error.message });
@@ -322,8 +386,7 @@ router.put('/:id', async (req, res) => {
             },
         });
 
-        io.to('DID-' + req.params.id).emit('updateDisplay', req.body);
-        io.to('UUID-' + displayUUID.dataValues.UUID).emit('updateDisplay', req.body);
+        io.to('display-' + displayUUID.dataValues.UUID).emit('updateDisplay', req.body);
     } catch (error) {
         if (transaction) await transaction.rollback();
         res.status(500).json({ error: 'Failed to update display', details: error.message });
@@ -348,8 +411,7 @@ router.delete('/:id', async (req, res) => {
         });
         res.status(204).end();
 
-        io.to('DID-' + req.params.id).emit('deleteDisplay');
-        io.to('UUID-' + displayUUID.dataValues.UUID).emit('deleteDisplay');
+        io.to('display-' + displayUUID.dataValues.UUID).emit('deleteDisplay');
     } catch (error) {
         res.status(500).json({ error: 'Failed to delete display', details: error.message });
     }

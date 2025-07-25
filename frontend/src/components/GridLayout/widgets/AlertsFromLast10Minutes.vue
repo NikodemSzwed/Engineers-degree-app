@@ -107,18 +107,31 @@ onMounted(async () => {
     }
     loading.value = false;
 
+    socket.emit('join-all');
     socket.on('newAlert', async (data) => {
-        console.log("🚀 ~ socket.on ~ data:", data)
         data.date = new Date();
         items.value.push(data);
 
     });
     socket.on('updateAlert', (data) => {
-
+        data.date = new Date(data.date);
+        Object.assign(items.value.find(item => item.AID == data.AID), data);
     });
     socket.on('deleteAlert', (data) => {
-
+        let index = items.value.findIndex(item => item.AID == data.AID);
+        if (index !== -1) {
+            items.value.splice(index, 1);
+        }
     });
+    socket.on('deleteMap', (data) => {
+        items.value = items.value.filter(item => item.EID != data.order.EID);
+    })
+    socket.on('updateMapDeleteSector', (data) => {
+        items.value = items.value.filter(item => item.EID != data.order.EID);
+    })
+    socket.on('updateMapDeleteOrder', (data) => {
+        items.value = items.value.filter(item => item.EID != data.order.EID);
+    })
 
     if (cleanItemsIntervalId) clearInterval(cleanItemsIntervalId);
     cleanItemsIntervalId = setInterval(() => {

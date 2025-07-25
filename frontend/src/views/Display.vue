@@ -26,7 +26,8 @@
                                     <div v-if="item.data.alerts.length > 0" :class="{
                                         'text-orange-500': !item.data.newAlertPresent,
                                         'text-red-500': item.data.newAlertPresent
-                                    }" class="text-md">
+                                    }" class="text-md cursor-pointer"
+                                        @click.stop="showAlertPopover($event, item.data.alerts)">
                                         <span class="mr-1">{{ item.data.alerts.length > 3 ? '3+' :
                                             item.data.alerts.length
                                             }}</span>
@@ -86,7 +87,8 @@
                                             <div v-if="order.alerts.length > 0" :class="{
                                                 'text-amber-500': !order.newAlertPresent,
                                                 'text-red-500': order.newAlertPresent
-                                            }">
+                                            }" class="cursor-pointer"
+                                                @click.stop="showAlertPopover($event, order.alerts)">
                                                 <span class="mr-1">{{ order.alerts.length > 3 ? '3+' :
                                                     order.alerts.length
                                                     }}</span>
@@ -180,6 +182,20 @@
             </div>
         </template>
     </Dialog>
+    <Popover ref="alertsPopover">
+        <div class="flex flex-col gap-1">
+            <div v-for="(alert, j) in showAlerts" :class="{
+                'bg-surface-200': j % 2 === 1,
+                'bg-surface-100': j % 2 === 0
+            }" class="p-3 rounded-xl flex flex-col gap-1">
+                <span>{{ alert.AAName }}</span>
+                <span>Zgłoszono: {{ formatDate(alert.date, 'dd.MM.yyyy HH:mm') }}</span>
+                <span>Stan: <Tag :severity="getSeverity(alert.State)" :value="getAlertMessage(alert.State)"></Tag>
+                </span>
+            </div>
+        </div>
+
+    </Popover>
 </template>
 
 <script setup>
@@ -191,7 +207,7 @@ import { toastHandler } from '../services/toastHandler.js';
 import { useToast } from 'primevue';
 import Dock from '../components/Dock/Dock.vue';
 import { format } from 'date-fns';
-import { Tag, Dialog } from 'primevue';
+import { Tag, Dialog, Popover } from 'primevue';
 import api from '../services/api.js';
 import { loadDefaultTheme } from '../services/themeChanger';
 import { useRouter } from 'vue-router';
@@ -207,8 +223,10 @@ const itemDialog = ref(false);
 // const displayUUID = ref();
 const validated = ref(false);
 const displayName = ref(null);
-const socket = connect();
+let socket;
 const displayUUID = ref(true ? '8c029a90-074a-4f24-a2d0-d80cad6338f5' : 'f3c10244-b6eb-4267-abce-6e2809446b5c');
+const alertsPopover = ref();
+const showAlerts = ref([]);
 
 const items = ref([]);
 const orderFields = ref([
@@ -266,23 +284,37 @@ function runAfter10MinOfInactivity(callback) {
 
 const stopInactivityWatcher = runAfter10MinOfInactivity(() => {
     selectObject(null);
+    alertsPopover.value.hide();
     itemDialog.value = false;
 });
 
 onMounted(async () => {
     loadDefaultTheme();
+    // displayUUID.value = localStorage.getItem('displayUUID');
+    try {
+        await api.post('/displays/login', {
+            UUID: displayUUID.value
+        });
+    } catch (error) {
+        console.log("🚀 ~ error:", error)
+        return;
+    }
 
+
+    socket = connect();
     await getData();
 
     console.log("🚀 ~ items:", items.value)
 
-    socket.emit('join', 'UUID-' + displayUUID.value);
+
+    socket.emit('join-display', 'display-' + displayUUID.value);
     socket.on('updateDisplay', (data) => {
         console.log("🚀 ~ socket.on ~ data:", data)
+        // displayUUID.value = localStorage.getItem('displayUUID');
         getData();
     });
     socket.on('deleteDisplay', (data) => {
-        socket.emit('leave', 'UUID-' + displayUUID.value);
+        socket.emit('leave', 'display-' + displayUUID.value);
         localStorage.removeItem('displayUUID');
         router.push('/Login');
     });
@@ -375,8 +407,10 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-    socket.emit('leave', 'UUID-' + displayUUID.value);
+    // if (socket) {
+    socket.emit('leave', 'display-' + displayUUID.value);
     socket.disconnect();
+    // }
     stopInactivityWatcher();
 })
 
@@ -411,6 +445,21 @@ const showItemDialog = (item) => {
     itemDialog.value = true;
 }
 
+const showAlertPopover = async (event, alerts) => {
+    await alertsPopover.value.hide();
+
+    showAlerts.value = alerts.map(alert => {
+        alert.date = new Date(alert.date);
+
+        return {
+            ...alert,
+            AAName: allAlertTypes.find(at => at.AAID == alert.AAID).name
+        }
+    });
+
+    alertsPopover.value.show(event);
+}
+
 function getSeverity(state) {
     switch (state) {
         case 0:
@@ -437,6 +486,19 @@ function getMessage(state) {
     }
 }
 
+function getAlertMessage(state) {
+    switch (state) {
+        case 0:
+            return 'Nowy';
+        case 1:
+            return 'W trakcie rozwiązywania';
+        case 2:
+            return 'Rozwiązany';
+        default:
+            return 'Inny';
+    }
+}
+
 function formatDate(date, fmt = 'dd.MM.yyyy') {
     return format(new Date(date), fmt);
 }
@@ -456,8 +518,6 @@ async function addAlert(alertType) {
 }
 
 async function getData() {
-    // displayUUID.value = localStorage.getItem('displayUUID');
-
     try {
         let response = await api.get('/displays/remote/' + displayUUID.value);
         validated.value = true
@@ -475,7 +535,7 @@ async function getData() {
                 let orders = data.MapsAndElements.filter(el => sectors.some(sector => sector.EID === el.ParentEID));
                 let allEIDs = [...sectors.map(el => el.EID), ...orders.map(el => el.EID), element.EID];
                 sectors.forEach(sector => {
-                    socket.emit('join', 'sector-' + element.EID);
+                    socket.emit('join', 'EID-' + element.EID);
                 });
                 return {
                     label: 'Mapa: ' + element.name,
@@ -488,7 +548,7 @@ async function getData() {
                 }
             } else if (element.ETID == 2) {
                 let moreData = data.Orders.find(el => el.EID == element.EID);
-                socket.emit('join', 'order-' + element.EID);
+                socket.emit('join', 'EID-' + element.EID);
                 return {
                     label: 'Zlecenie: ' + element.name,
                     ETID: element.ETID,
@@ -506,7 +566,7 @@ async function getData() {
                     order.newAlertPresent = found ? true : false;
                     return order;
                 });
-                socket.emit('join', 'sector-' + element.EID);
+                socket.emit('join', 'EID-' + element.EID);
                 return {
                     label: 'Sektor: ' + element.name,
                     ETID: element.ETID,
@@ -520,12 +580,14 @@ async function getData() {
             }
         })
     } catch (error) {
-        if (error.response.data.error == 'Display not found') {
+        if (error?.response?.data?.error == 'Display not found') {
             localStorage.removeItem('displayUUID');
             router.push('/Login');
         }
-        else if (error.response.data.error != "Display not validated") {
+        else if (error?.response?.data?.error != "Display not validated") {
             toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych.', error));
+        } else {
+            console.error(error);
         }
     }
 }
