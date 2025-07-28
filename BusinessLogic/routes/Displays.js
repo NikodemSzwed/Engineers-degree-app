@@ -79,7 +79,7 @@ router.post('/login', async (req, res) => {
         });
 
         if (!user) {
-            return res.status(401).json({ error: 'Invalid display' });
+            return res.status(401).json({ error: 'Display not found' });
         }
 
         const displayEIDs = await Displays.findOne({

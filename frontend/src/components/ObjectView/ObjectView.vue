@@ -28,7 +28,7 @@
 </template>
 
 <script setup>
-import { ref, defineProps, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { Card } from 'primevue';
 import DataTable from '../DataTable/DataTable.vue';
 import { format } from 'date-fns';

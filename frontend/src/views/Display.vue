@@ -220,11 +220,11 @@ const dockVisible = ref(false);
 const selectedItem = ref(null);
 const showItem = ref({});
 const itemDialog = ref(false);
-// const displayUUID = ref();
+const displayUUID = ref();
 const validated = ref(false);
 const displayName = ref(null);
 let socket;
-const displayUUID = ref(true ? '8c029a90-074a-4f24-a2d0-d80cad6338f5' : 'f3c10244-b6eb-4267-abce-6e2809446b5c');
+// const displayUUID = ref(true ? '8c029a90-074a-4f24-a2d0-d80cad6338f5' : 'f3c10244-b6eb-4267-abce-6e2809446b5c');
 const alertsPopover = ref();
 const showAlerts = ref([]);
 
@@ -290,13 +290,13 @@ const stopInactivityWatcher = runAfter10MinOfInactivity(() => {
 
 onMounted(async () => {
     loadDefaultTheme();
-    // displayUUID.value = localStorage.getItem('displayUUID');
+    displayUUID.value = localStorage.getItem('displayUUID');
     try {
         await api.post('/displays/login', {
             UUID: displayUUID.value
         });
     } catch (error) {
-        console.log("🚀 ~ error:", error)
+        cleanBasedOnError(error);
         return;
     }
 
@@ -310,7 +310,7 @@ onMounted(async () => {
     socket.emit('join-display', 'display-' + displayUUID.value);
     socket.on('updateDisplay', (data) => {
         console.log("🚀 ~ socket.on ~ data:", data)
-        // displayUUID.value = localStorage.getItem('displayUUID');
+        displayUUID.value = localStorage.getItem('displayUUID');
         getData();
     });
     socket.on('deleteDisplay', (data) => {
@@ -407,10 +407,10 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-    // if (socket) {
-    socket.emit('leave', 'display-' + displayUUID.value);
-    socket.disconnect();
-    // }
+    if (socket) {
+        socket.emit('leave', 'display-' + displayUUID.value);
+        socket.disconnect();
+    }
     stopInactivityWatcher();
 })
 
@@ -517,6 +517,18 @@ async function addAlert(alertType) {
     }
 }
 
+function cleanBasedOnError(error) {
+    if (error?.response?.data?.error == 'Display not found') {
+        localStorage.removeItem('displayUUID');
+        router.push('/Login');
+    }
+    else if (error?.response?.data?.error != "Display not validated") {
+        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych.', error));
+    } else {
+        console.error(error);
+    }
+}
+
 async function getData() {
     try {
         let response = await api.get('/displays/remote/' + displayUUID.value);
@@ -580,15 +592,7 @@ async function getData() {
             }
         })
     } catch (error) {
-        if (error?.response?.data?.error == 'Display not found') {
-            localStorage.removeItem('displayUUID');
-            router.push('/Login');
-        }
-        else if (error?.response?.data?.error != "Display not validated") {
-            toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych.', error));
-        } else {
-            console.error(error);
-        }
+        cleanBasedOnError(error);
     }
 }
 

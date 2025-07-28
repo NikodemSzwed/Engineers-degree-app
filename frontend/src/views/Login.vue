@@ -143,7 +143,10 @@ async function registerDevice() {
 onMounted(() => {
     loadDefaultTheme();
 
-    if (localStorage.getItem('displayUUID'))
+    if (localStorage.getItem('displayUUID')) {
+        console.log("🚀 ~ localStorage.getItem('displayUUID'):", localStorage.getItem('displayUUID'))
         router.push('/Display');
+    }
+
 });
 </script>
