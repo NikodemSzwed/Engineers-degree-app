@@ -3,6 +3,7 @@ import { createPinia } from 'pinia';
 import piniaPersistedState from 'pinia-plugin-persistedstate';
 import './assets/main.css';
 import 'primeicons/primeicons.css';
+import 'ol-ext/dist/ol-ext.css';
 import router from './router';
 import App from './App.vue';
 import PrimeVue from 'primevue/config';
