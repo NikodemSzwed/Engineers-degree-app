@@ -7,6 +7,9 @@
             <Button @click="currentMode = 'modifyPolygon'">Edit Polygon</Button>
             <!-- <Button @click="currentMode = 'select'">Select</Button> -->
             <Button @click="fitMapToContainer">Reset</Button>
+            <ToggleButton v-model="enableSnap" onLabel="Snap On" offLabel="Snap Off" />
+            <ToggleButton v-model="enableSimplifyGeometry" onLabel="Simplify Geometry On"
+                offLabel="Simplify Geometry Off" />
         </div>
         <Card class="w-full flex flex-1" :pt="{ content: 'flex flex-1', body: 'flex flex-1 p-2' }">
             <template #content>
@@ -24,7 +27,7 @@
 
 <script setup>
 import { ref, watch, onMounted, nextTick } from 'vue';
-import Map from 'ol/Map';
+import olMap from 'ol/Map';
 import View from 'ol/View';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
@@ -34,7 +37,7 @@ import { Style, Stroke, Fill, Text } from 'ol/style';
 import { createBox } from 'ol/interaction/Draw';
 import Feature from 'ol/Feature';
 import { Polygon, LineString, Point, LinearRing, GeometryCollection, MultiLineString, MultiPoint, MultiPolygon } from 'ol/geom';
-import { Button, Card } from 'primevue';
+import { Button, Card, ToggleButton } from 'primevue';
 import { primaryAction } from 'ol/events/condition';
 import DragPan from 'ol/interaction/DragPan';
 import TileLayer from 'ol/layer/Tile';
@@ -81,14 +84,19 @@ const backgroundLayer = new VectorLayer({
 
 let map;
 
-let drawInteraction, modifyInteraction, selectInteraction;
+let drawInteraction, modifyInteraction, selectInteraction, snapInteraction, snapToBoundary;
 let transform;
 let translate;
 let dragPanInteraction = new DragPan();
 let cursorWasOutside = false;
 
 let originalGeom = null;
-const snapTolerance = 1;
+const snapTolerance = 10;
+const enableSnap = ref(true);
+const enableSimplifyGeometry = ref(true);
+// const lastSnapDistances = new Map();
+let lastPointerCoord = null;
+
 
 onMounted(() => {
     // const mapContainerRect = mapContainer.value.getBoundingClientRect();
@@ -96,7 +104,7 @@ onMounted(() => {
     let height = 1080;//mapContainerRect.height;
     let mapExtent = [0, 0, width, height];
 
-    map = new Map({
+    map = new olMap({
         target: mapContainer.value,
         layers: [backgroundLayer, sectorLayer],
         // interactions: defaultInteractions({ dragPan: false }),
@@ -113,6 +121,19 @@ onMounted(() => {
             extent: mapExtent,
             constrainResolution: false,
         }),
+    });
+    map.on('postrender', function (event) {
+        const context = event.context;
+
+        if (context && !context._patched && context.canvas) {
+            const canvas = context.canvas;
+
+            const newCtx = canvas.getContext('2d', { willReadFrequently: true });
+            if (newCtx) {
+                event.context = newCtx;
+                newCtx._patched = true;
+            }
+        }
     });
 
     const labelStyle = new Style({
@@ -175,8 +196,37 @@ onMounted(() => {
     drawInteraction = new Draw({
         source: sectorSource,
         type: 'Circle',
-        geometryFunction: createBox(),
-        extent: mapExtent,
+        geometryFunction: (coordinates, geometry) => {
+            const boxGeom = createBox()(coordinates, geometry);
+            const boxExtent = boxGeom.getExtent();
+
+            const clippedExtent = [
+                Math.min(Math.max(boxExtent[0], mapExtent[0] + 1), mapExtent[2]),
+                Math.min(Math.max(boxExtent[1], mapExtent[1] + 1), mapExtent[3]),
+                Math.max(Math.min(boxExtent[2], mapExtent[2] + 1), mapExtent[0]),
+                Math.max(Math.min(boxExtent[3], mapExtent[3] + 1), mapExtent[1])
+            ];
+
+            console.log("🚀 ~ mapExtent:", mapExtent)
+            const clippedCoords = [
+                [
+                    [clippedExtent[0], clippedExtent[1]],
+                    [clippedExtent[2], clippedExtent[1]],
+                    [clippedExtent[2], clippedExtent[3]],
+                    [clippedExtent[0], clippedExtent[3]],
+                    [clippedExtent[0], clippedExtent[1]],
+                ],
+            ];
+
+            if (!geometry) {
+                geometry = new Polygon(clippedCoords);
+            } else {
+                geometry.setCoordinates(clippedCoords);
+            }
+
+            return geometry;
+
+        }
     });
 
     selectInteraction = new Select({
@@ -186,10 +236,34 @@ onMounted(() => {
     modifyInteraction = new Modify({
         features: selectInteraction.getFeatures(),
     });
-    modifyInteraction.on('modifying', (e) => {
-        console.log("🚀 ~ modifying:", e)
+    modifyInteraction.on('modifystart', (e) => {
+        const feature = e.features.item(0);
+        originalGeom = feature.getGeometry().clone();
+    });
+    modifyInteraction.on('modifyend', (e) => {
+        e.features.forEach((feature) => {
+            const geometry = feature.getGeometry();
+            const extent = geometry.getExtent();
 
-    })
+            const isInside =
+                extent[0] >= mapExtent[0] &&
+                extent[1] >= mapExtent[1] &&
+                extent[2] <= mapExtent[2] &&
+                extent[3] <= mapExtent[3];
+
+            if (!isInside && originalGeom) {
+                feature.setGeometry(originalGeom.clone());
+            } else {
+                originalGeom = geometry.clone();
+            }
+
+            if (enableSimplifyGeometry.value) {
+                const geom = feature.getGeometry();
+                simplifyPolygon(geom, 3);
+            }
+        });
+
+    });
 
     transform = new Transform({
         rotate: true,
@@ -201,14 +275,29 @@ onMounted(() => {
         layers: [sectorLayer],
     });
 
+    snapInteraction = new Snap({
+        source: sectorSource,
+    })
+    snapToBoundary = new Snap({
+        source: backgroundSource
+    });
+
     transform.on('translating', (e) => {
         const featuresToSnap = sectorLayer.getSource().getFeatures();
+
         const currentPointerCoord = map.getCoordinateFromPixel(e.pixel);
 
         const outsideTop = currentPointerCoord[1] > mapExtent[3];
         const outsideBottom = currentPointerCoord[1] < mapExtent[1];
         const outsideLeft = currentPointerCoord[0] < mapExtent[0];
         const outsideRight = currentPointerCoord[0] > mapExtent[2];
+
+        const pointerDelta = [
+            currentPointerCoord[0] - (lastPointerCoord?.[0] ?? currentPointerCoord[0]),
+            currentPointerCoord[1] - (lastPointerCoord?.[1] ?? currentPointerCoord[1]),
+        ];
+        lastPointerCoord = currentPointerCoord;
+
 
         e.features.forEach((feature) => {
             const geometry = feature.getGeometry();
@@ -217,6 +306,69 @@ onMounted(() => {
             let dx = 0;
             let dy = 0;
 
+            let snapDx = 0;
+            let snapDy = 0;
+            let snapFound = false;
+
+            if (enableSnap.value) {
+                featuresToSnap.forEach((otherFeature) => {
+                    if (otherFeature.ol_uid === feature.ol_uid) return;
+
+                    const otherGeom = otherFeature.getGeometry();
+                    const otherExtent = otherGeom.getExtent();
+
+                    const closestOnOther = otherGeom.getClosestPoint(geometry.getFirstCoordinate());
+                    const closestOnSelf = geometry.getClosestPoint(closestOnOther);
+
+                    const dxReal = closestOnOther[0] - closestOnSelf[0];
+                    const dyReal = closestOnOther[1] - closestOnSelf[1];
+                    const realDist = Math.hypot(dxReal, dyReal);
+
+                    if (realDist > snapTolerance) {
+                        return;
+                    }
+
+                    const snapVector = [
+                        closestOnOther[0] - closestOnSelf[0],
+                        closestOnOther[1] - closestOnSelf[1],
+                    ];
+
+                    const dot = snapVector[0] * pointerDelta[0] + snapVector[1] * pointerDelta[1];
+
+                    if (dot < 0) {
+                        return;
+                    }
+
+                    const distLeftRight = Math.abs(extent[0] - otherExtent[2]);
+                    const distRightLeft = Math.abs(extent[2] - otherExtent[0]);
+                    const distTopBottom = Math.abs(extent[3] - otherExtent[1]);
+                    const distBottomTop = Math.abs(extent[1] - otherExtent[3]);
+
+                    if (distLeftRight < snapTolerance) {
+                        snapDx = otherExtent[2] - extent[0];
+                        snapFound = true;
+                    } else if (distRightLeft < snapTolerance) {
+                        snapDx = otherExtent[0] - extent[2];
+                        snapFound = true;
+                    }
+
+                    if (distTopBottom < snapTolerance) {
+                        snapDy = otherExtent[1] - extent[3];
+                        snapFound = true;
+                    } else if (distBottomTop < snapTolerance) {
+                        snapDy = otherExtent[3] - extent[1];
+                        snapFound = true;
+                    }
+                });
+
+                if (snapFound) {
+                    dx = snapDx;
+                    dy = snapDy;
+                }
+            }
+
+
+            //confy to map bounds
             if (outsideLeft) {
                 dx = mapExtent[0] - extent[0];
             } else if (outsideRight) {
@@ -241,56 +393,13 @@ onMounted(() => {
                 }
             }
 
-            let snapDx = 0;
-            let snapDy = 0;
-            let snapFound = false;
-
-            featuresToSnap.forEach((otherFeature) => {
-                if (otherFeature === feature) return; // skip self
-
-                const otherGeom = otherFeature.getGeometry();
-                const otherExtent = otherGeom.getExtent();
-
-                // Example: snap if left edge close to other's right edge
-                const distLeftRight = Math.abs(extent[0] + dx - otherExtent[2]);
-                if (distLeftRight < snapTolerance) {
-                    snapDx = otherExtent[2] - extent[0];
-                    snapFound = true;
-                }
-
-                // Similarly for right edge to left edge
-                const distRightLeft = Math.abs(extent[2] + dx - otherExtent[0]);
-                if (distRightLeft < snapTolerance) {
-                    snapDx = otherExtent[0] - extent[2];
-                    snapFound = true;
-                }
-
-                // For top/bottom edges snapping
-                const distTopBottom = Math.abs(extent[3] + dy - otherExtent[1]);
-                if (distTopBottom < snapTolerance) {
-                    snapDy = otherExtent[1] - extent[3];
-                    snapFound = true;
-                }
-
-                const distBottomTop = Math.abs(extent[1] + dy - otherExtent[3]);
-                if (distBottomTop < snapTolerance) {
-                    snapDy = otherExtent[3] - extent[1];
-                    snapFound = true;
-                }
-            });
-
-            if (snapFound) {
-                dx = snapDx;
-                dy = snapDy;
-            }
-
             if (dx !== 0 || dy !== 0) {
                 geometry.translate(dx, dy);
             }
         });
     });
-    transform.on('rotating', (e) => {
 
+    transform.on('rotating', (e) => {
         const feature = e.feature;
         const geometry = feature.getGeometry();
         const extent = geometry.getExtent();
@@ -370,66 +479,69 @@ onMounted(() => {
 
 
 
-    // translate = new Translate({ features: selectInteraction.getFeatures() });
-    // translate.on('translating', (e) => {
-    //     console.log("🚀 ~ e:", e)
-    //     const currentPointerCoord = map.getCoordinateFromPixel(e.mapBrowserEvent.pixel);
+    translate = new Translate({ features: selectInteraction.getFeatures() });
+    translate.on('translating', (e) => {
+        const currentPointerCoord = map.getCoordinateFromPixel(e.mapBrowserEvent.pixel);
 
-    //     const outsideTop = currentPointerCoord[1] > mapExtent[3];
-    //     const outsideBottom = currentPointerCoord[1] < mapExtent[1];
-    //     const outsideLeft = currentPointerCoord[0] < mapExtent[0];
-    //     const outsideRight = currentPointerCoord[0] > mapExtent[2];
+        const outsideTop = currentPointerCoord[1] > mapExtent[3];
+        const outsideBottom = currentPointerCoord[1] < mapExtent[1];
+        const outsideLeft = currentPointerCoord[0] < mapExtent[0];
+        const outsideRight = currentPointerCoord[0] > mapExtent[2];
 
-    //     e.features.forEach((feature) => {
-    //         const geometry = feature.getGeometry();
-    //         const extent = geometry.getExtent();
+        e.features.forEach((feature) => {
+            const geometry = feature.getGeometry();
+            const extent = geometry.getExtent();
 
-    //         let dx = 0;
-    //         let dy = 0;
+            let dx = 0;
+            let dy = 0;
 
-    //         if (outsideLeft) {
-    //             dx = mapExtent[0] - extent[0];
-    //         } else if (outsideRight) {
-    //             dx = mapExtent[2] - extent[2];
-    //         } else {
-    //             if (extent[0] < mapExtent[0]) {
-    //                 dx = mapExtent[0] - extent[0];
-    //             } else if (extent[2] > mapExtent[2]) {
-    //                 dx = mapExtent[2] - extent[2];
-    //             }
-    //         }
+            if (outsideLeft) {
+                dx = mapExtent[0] - extent[0];
+            } else if (outsideRight) {
+                dx = mapExtent[2] - extent[2];
+            } else {
+                if (extent[0] < mapExtent[0]) {
+                    dx = mapExtent[0] - extent[0];
+                } else if (extent[2] > mapExtent[2]) {
+                    dx = mapExtent[2] - extent[2];
+                }
+            }
 
-    //         if (outsideBottom) {
-    //             dy = mapExtent[1] - extent[1];
-    //         } else if (outsideTop) {
-    //             dy = mapExtent[3] - extent[3];
-    //         } else {
-    //             if (extent[1] < mapExtent[1]) {
-    //                 dy = mapExtent[1] - extent[1];
-    //             } else if (extent[3] > mapExtent[3]) {
-    //                 dy = mapExtent[3] - extent[3];
-    //             }
-    //         }
+            if (outsideBottom) {
+                dy = mapExtent[1] - extent[1];
+            } else if (outsideTop) {
+                dy = mapExtent[3] - extent[3];
+            } else {
+                if (extent[1] < mapExtent[1]) {
+                    dy = mapExtent[1] - extent[1];
+                } else if (extent[3] > mapExtent[3]) {
+                    dy = mapExtent[3] - extent[3];
+                }
+            }
 
-    //         if (dx !== 0 || dy !== 0) {
-    //             geometry.translate(dx, dy);
-    //         }
-    //     });
-    // });
+            if (dx !== 0 || dy !== 0) {
+                geometry.translate(dx, dy);
+            }
+        });
+    });
 
     dragPanInteraction.setActive(false);
     drawInteraction.setActive(false);
     modifyInteraction.setActive(false);
     selectInteraction.setActive(false);
-    // translate.setActive(false);
+    translate.setActive(false);
     transform.setActive(false);
+    snapInteraction.setActive(false);
+    snapToBoundary.setActive(false);
 
-    map.addInteraction(dragPanInteraction);
+    // map.addInteraction(dragPanInteraction);
     map.addInteraction(drawInteraction);
     map.addInteraction(selectInteraction);
     map.addInteraction(modifyInteraction);
-    // map.addInteraction(translate);
+    map.addInteraction(translate);
     map.addInteraction(transform);
+    map.addInteraction(snapInteraction);
+    map.addInteraction(snapToBoundary);
 
     fitMapToContainer()
 
@@ -441,19 +553,32 @@ watch(currentMode, (mode) => {
     modifyInteraction.setActive(false);
     selectInteraction.setActive(false);
     selectInteraction.getFeatures().clear();
-    // translate.setActive(false);
+    translate.setActive(false);
     transform.setActive(false);
+    snapInteraction.setActive(false);
+    snapToBoundary.setActive(false);
 
 
     if (mode === 'draw') {
         dragPanInteraction.setActive(true);
         drawInteraction.setActive(true);
+        if (enableSnap.value) {
+            snapInteraction.setActive(true);
+            snapToBoundary.setActive(true);
+        }
     } else if (mode === 'modifyPolygon') {
         selectInteraction.setActive(true);
         modifyInteraction.setActive(true);
+        // translate.setActive(true);
+        if (enableSnap.value) {
+            snapInteraction.setActive(true);
+            snapToBoundary.setActive(true);
+        }
     } else if (mode === 'modify') {
-
+        // selectInteraction.setActive(true);
+        // snapInteraction.setActive(true);
         transform.setActive(true);
+
     } else if (mode === 'select') {
         selectInteraction.setActive(true);
     } else {
@@ -464,6 +589,13 @@ watch(currentMode, (mode) => {
         selectInteraction.on('select', (e) => {
             console.log('Selected features:', e.selected);
         });
+});
+
+watch(enableSnap, (value) => {
+    if (currentMode.value === 'modifyPolygon') {
+        snapInteraction.setActive(value);
+        snapToBoundary.setActive(value);
+    }
 });
 
 function fitMapToContainer() {
@@ -496,6 +628,65 @@ function createSolidColorTile(color, tileSize = 256) {
     context.fillStyle = color;
     context.fillRect(0, 0, tileSize, tileSize);
     return canvas;
+}
+
+function removeNearlyColinearPoints(coords, tolerance = 1e-6) {
+    let changed = false;
+    let simplified = [];
+
+    if (coords.length < 4) {
+        return coords;
+    }
+
+    do {
+        changed = false;
+        simplified = [coords[0]];
+        for (let i = 1; i < coords.length - 1; i++) {
+            const [x1, y1] = coords[i - 1];
+            const [x2, y2] = coords[i];
+            const [x3, y3] = coords[i + 1];
+
+            const dx = x3 - x1;
+            const dy = y3 - y1;
+            const lenSq = dx * dx + dy * dy;
+
+            const dist = Math.abs(dy * x2 - dx * y2 + x3 * y1 - y3 * x1) / Math.sqrt(lenSq);
+
+            if (dist > tolerance) {
+                simplified.push(coords[i]);
+            } else {
+                simplified.push(...coords.slice(i + 1));
+                changed = true;
+                break;
+            }
+        }
+
+        if (!changed) {
+            simplified.push(coords[coords.length - 1]);
+        }
+
+        coords = simplified;
+
+    } while (changed && simplified.length > 3);
+
+    return simplified;
+}
+
+function simplifyPolygon(polygonGeometry, tolerance = 1e-6) {
+    const rings = polygonGeometry.getCoordinates().map((ring) => {
+        const isClosed = ring.length >= 4 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1];
+        const simplified = removeNearlyColinearPoints(ring, tolerance);
+
+        // Ensure closed ring
+        if (isClosed && (simplified[0][0] !== simplified[simplified.length - 1][0] ||
+            simplified[0][1] !== simplified[simplified.length - 1][1])) {
+            simplified.push(simplified[0]);
+        }
+
+        return simplified;
+    });
+
+    polygonGeometry.setCoordinates(rings);
 }
 
 </script>
