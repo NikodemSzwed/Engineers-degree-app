@@ -1,16 +1,19 @@
 <template>
     <div class="flex flex-1 flex-col gap-3">
-        <div class="flex flex-row gap-3">
+        <!-- <div class="flex flex-row gap-3">
             <Button @click="currentMode = 'view'">View</Button>
             <Button @click="currentMode = 'draw'">Draw</Button>
             <Button @click="currentMode = 'modify'">Edit</Button>
             <Button @click="currentMode = 'modifyPolygon'">Edit Polygon</Button>
-            <!-- <Button @click="currentMode = 'select'">Select</Button> -->
+            <Button @click="currentMode = 'select'">Select</Button>
             <Button @click="fitMapToContainer">Reset</Button>
             <ToggleButton v-model="enableSnap" onLabel="Snap On" offLabel="Snap Off" />
             <ToggleButton v-model="enableSimplifyGeometry" onLabel="Simplify Geometry On"
                 offLabel="Simplify Geometry Off" />
-        </div>
+            <ToggleButton v-model="enableZones" onLabel="Zones On" offLabel="Zones Off" />
+            <Button @click="setSelectedShapeToRectangle">Reset Rect</Button>
+        </div> -->
+
         <Card class="w-full flex flex-1" :pt="{ content: 'flex flex-1', body: 'flex flex-1 p-2' }">
             <template #content>
                 <div ref="mapContainer" class="w-full flex flex-1"></div>
@@ -21,45 +24,121 @@
         <!-- <div class="flex flex-1 bg-red-500">
             asd
         </div> -->
+        <!-- <div id="sector-icon" style="position: absolute;">
+            <Card>
+                <template #content>
+                    <i class="pi pi-cog"></i>
+                </template>
+            </Card>
+
+        </div> -->
+
     </div>
 
 </template>
 
 <script setup>
-import { ref, watch, onMounted, nextTick } from 'vue';
+import { ref, watch, onMounted, nextTick, computed } from 'vue';
 import olMap from 'ol/Map';
 import View from 'ol/View';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import { Draw, Modify, Select, Snap, Translate } from 'ol/interaction';
-import { defaults as defaultInteractions } from 'ol/interaction';
+// import { defaults as defaultInteractions } from 'ol/interaction';
 import { Style, Stroke, Fill, Text } from 'ol/style';
 import { createBox } from 'ol/interaction/Draw';
 import Feature from 'ol/Feature';
 import { Polygon, LineString, Point, LinearRing, GeometryCollection, MultiLineString, MultiPoint, MultiPolygon } from 'ol/geom';
 import { Button, Card, ToggleButton } from 'primevue';
-import { primaryAction } from 'ol/events/condition';
+// import { primaryAction } from 'ol/events/condition';
 import DragPan from 'ol/interaction/DragPan';
-import TileLayer from 'ol/layer/Tile';
-import { TileDebug } from 'ol/source';
-import TileImage from 'ol/source/TileImage';
-import { containsExtent } from 'ol/extent';
+// import TileLayer from 'ol/layer/Tile';
+// import { TileDebug } from 'ol/source';
+// import TileImage from 'ol/source/TileImage';
+// import { containsExtent } from 'ol/extent';
 import Transform from 'ol-ext/interaction/Transform';
-import { rotate } from 'ol/transform';
-import { GeoJSON } from 'ol/format';
-import * as jsts from 'jsts/dist/jsts.min.js';
-import { fromExtent } from 'ol/geom/Polygon';
+// import { rotate } from 'ol/transform';
+// import { GeoJSON } from 'ol/format';
+// import * as jsts from 'jsts/dist/jsts.min.js';
+// import { fromExtent } from 'ol/geom/Polygon';
+import { useUserStore } from '../../stores/userData';
+import Overlay from 'ol/Overlay';
 
-const parser = new jsts.io.OL3Parser();
-parser.inject(
-    Polygon,
-    Point, LineString, LinearRing, MultiPoint, MultiLineString, MultiPolygon,
-    GeometryCollection
-);
-const reader = new jsts.io.GeoJSONReader();
-const geoJson = new GeoJSON();
+// const parser = new jsts.io.OL3Parser();
+// parser.inject(
+//     Polygon,
+//     Point, LineString, LinearRing, MultiPoint, MultiLineString, MultiPolygon,
+//     GeometryCollection
+// );
+// const reader = new jsts.io.GeoJSONReader();
+// const geoJson = new GeoJSON();
 
-const currentMode = ref('view');
+const userData = useUserStore();
+
+const props = defineProps({
+    name: {
+        type: String,
+        required: true,
+    },
+    mode: {
+        type: String,
+        default: 'view',
+    },
+    enableSnap: {
+        type: Boolean,
+        default: true,
+    },
+    enableSimplifyGeometry: {
+        type: Boolean,
+        default: true,
+    },
+    layers: {
+        type: Array,
+        default: () => []
+    },
+    visibleLayers: {
+        type: Array,
+        default: () => []
+    },
+    editLayer: {
+        type: Object,
+        default: 'physical'
+    }
+});
+
+const emit = defineEmits(['update:mode', 'update:enableSnap', 'update:enableSimplifyGeometry', 'update:visibleLayers']);
+
+defineExpose({
+    setSelectedShapeToRectangle,
+});
+
+const currentMode = computed({
+    get: () => props.mode,
+    set: (value) => {
+        emit('update:mode', value);
+    }
+});
+const snapTolerance = 10;
+const enableSnap = computed({
+    get: () => props.enableSnap,
+    set: (value) => {
+        emit('update:enableSnap', value);
+    }
+});
+const enableSimplifyGeometry = computed({
+    get: () => props.enableSimplifyGeometry,
+    set: (value) => {
+        emit('update:enableSimplifyGeometry', value);
+    }
+});
+const localVisibleLayers = computed({
+    get: () => props.visibleLayers,
+    set: (value) => {
+        emit('update:visibleLayers', value);
+    }
+})
+
+
 const mapContainer = ref(null);
 
 const sectorSource = new VectorSource();
@@ -82,6 +161,21 @@ const backgroundLayer = new VectorLayer({
     renderBuffer: 1000,
 })
 
+const zoneSource = new VectorSource();
+const zoneLayer = new VectorLayer({
+    source: zoneSource,
+    style: new Style({
+        stroke: new Stroke({ color: 'orange', width: 3 }),
+        fill: new Fill({ color: 'rgba(100, 100, 100, 0.1)' }),
+    }),
+    renderBuffer: 1000,
+    zIndex: 100
+})
+
+let layerMap = new Map();
+layerMap.set('physical', sectorLayer);
+layerMap.set('zones', zoneLayer);
+
 let map;
 
 let drawInteraction, modifyInteraction, selectInteraction, snapInteraction, snapToBoundary;
@@ -91,9 +185,8 @@ let dragPanInteraction = new DragPan();
 let cursorWasOutside = false;
 
 let originalGeom = null;
-const snapTolerance = 10;
-const enableSnap = ref(true);
-const enableSimplifyGeometry = ref(true);
+
+// const enableZones = ref(false);
 // const lastSnapDistances = new Map();
 let lastPointerCoord = null;
 
@@ -135,40 +228,127 @@ onMounted(() => {
             }
         }
     });
+    map.addLayer(zoneLayer);
 
-    const labelStyle = new Style({
+    ///******** overlay for pure html - doesn't scale */
+    // const sectorIconElement = document.getElementById('sector-icon');
+    // let sectorIconElementRect = sectorIconElement.getBoundingClientRect();
+    // console.log("🚀 ~ sectorIconElement.getBoundingClientRect():", sectorIconElement.getBoundingClientRect())
+
+    // const sectorOverlay = new Overlay({
+    //     element: sectorIconElement,
+    //     positioning: 'center-center',
+    //     stopEvent: false,
+    // });
+
+    // map.addOverlay(sectorOverlay);
+
+    // function updateSectorIconPosition(feature) {
+    //     const extent = feature.getGeometry().getExtent();
+    //     // const sectorIconElementRect = sectorIconElement.getBoundingClientRect();
+
+    //     const sectorOverlayWidth = sectorIconElementRect.width;
+    //     const topRight = [extent[2] - sectorOverlayWidth, extent[3]];
+
+    //     sectorOverlay.setPosition(topRight);
+    // }
+
+
+
+
+    // const labelStyle = new Style({
+    //     stroke: new Stroke({
+    //         color: 'blue',
+    //         width: 2,
+    //     }),
+    //     fill: new Fill({
+    //         color: 'rgba(0, 0, 255, 0.1)',
+    //     }),
+    //     text: new Text({
+    //         text: 'Your Label',
+    //         font: '14px Calibri,sans-serif',
+    //         fill: new Fill({ color: '#000' }),
+    //         stroke: new Stroke({ color: '#fff', width: 3 }),
+    //         overflow: true,
+    //     }),
+    // });
+
+    function hexToRgba(hex, alpha) {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+
+    const primaryHex = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim();
+    const primaryWithAlpha = hexToRgba(primaryHex, 0.1);
+
+    const sectorStyle = new Style({
         stroke: new Stroke({
-            color: 'blue',
+            color: primaryHex,
             width: 2,
         }),
         fill: new Fill({
-            color: 'rgba(0, 0, 255, 0.1)',
+            color: primaryWithAlpha,
         }),
         text: new Text({
-            text: 'Your Label',
             font: '14px Calibri,sans-serif',
-            fill: new Fill({ color: '#000' }),
-            stroke: new Stroke({ color: '#fff', width: 3 }),
-            overflow: true,
+            fill: new Fill({ color: userData.personalSettings.darkMode ? '#fff' : '#000' }),
+            overflow: false,
+            // textAlign: 'right',
+            // textBaseline: 'top',
         }),
     });
 
+    const dynamicStyleFunction = (feature) => {
+        const style = sectorStyle.clone();
+        style.getText().setText(feature.name || '');
+        return style;
+    };
 
+    const backgroundStyle = new Style({
+        stroke: new Stroke({
+            color: getComputedStyle(document.documentElement).getPropertyValue('--color-primary'),
+            width: 2,
+        }),
+        fill: new Fill({
+            color: 'rgba(100, 100, 100, 0.1)',
+        }),
+        text: new Text({
+            text: props.name,
+            font: '18px Calibri,sans-serif',
+            fill: new Fill({ color: userData.personalSettings.darkMode ? '#fff' : '#000' }),
+
+            // stroke: new Stroke({ color: '#fff', width: 3 }),
+            overflow: true,
+        }),
+    });
+    // console.log("🚀 ~ document.documentElement:", userData.personalSettings.darkMode)
+
+    let size = 250;
     const corners = [
         [0, 0],
-        [width - 100, 0],
-        [width - 100, height - 100],
-        [0, height - 100],
+        [width - size, 0],
+        [width - size, height - size],
+        [0, height - size],
     ];
-    const rectangles = corners.map(([x, y]) => new Feature(
-        new Polygon([[
-            [x, y],
-            [x + 100, y],
-            [x + 100, y + 100],
-            [x, y + 100],
-            [x, y],
-        ]])
-    ));
+    let a = 0;
+    const rectangles = corners.map(([x, y]) => {
+        let f = new Feature(
+            new Polygon([[
+                [x, y],
+                [x + size, y],
+                [x + size, y + size],
+                [x, y + size],
+                [x, y],
+            ]])
+        )
+        f.name = 'Rectangle' + a++;
+        // console.log("🚀 ~ f:", f)
+        return f;
+    }
+    );
     rectangles.push(new Feature(
         new Polygon([[
             [width / 2, height / 2],
@@ -178,8 +358,10 @@ onMounted(() => {
             [width / 2, height / 2]
         ]])
     ));
-    rectangles[0].setStyle(labelStyle);
+    // rectangles[0].setStyle(sectorStyle);
+    // updateSectorIconPosition(rectangles[0]);
     sectorSource.addFeatures(rectangles);
+    sectorLayer.setStyle(dynamicStyleFunction);
 
     const backgroundRectangle = new Feature(
         new Polygon([[
@@ -191,7 +373,18 @@ onMounted(() => {
         ]])
     )
     backgroundSource.addFeature(backgroundRectangle);
-    backgroundRectangle.setStyle(labelStyle);
+    backgroundRectangle.setStyle(backgroundStyle);
+
+    const zone1 = new Feature(
+        new Polygon([[
+            [200, 200],
+            [width - 500, 200],
+            [width - 500, height - 500],
+            [200, height - 500],
+            [200, 200],
+        ]])
+    )
+    zoneSource.addFeature(zone1);
 
     drawInteraction = new Draw({
         source: sectorSource,
@@ -207,7 +400,7 @@ onMounted(() => {
                 Math.max(Math.min(boxExtent[3], mapExtent[3] + 1), mapExtent[1])
             ];
 
-            console.log("🚀 ~ mapExtent:", mapExtent)
+            // console.log("🚀 ~ mapExtent:", mapExtent)
             const clippedCoords = [
                 [
                     [clippedExtent[0], clippedExtent[1]],
@@ -270,9 +463,11 @@ onMounted(() => {
         translateFeature: true,
         translate: true,
         scale: true,
-        stretch: false,
+        stretch: true,
         keepAspectRatio: false,
-        layers: [sectorLayer],
+        filter: (feature, layer) => {
+            return layer === layerMap.get(props.editLayer.value);
+        },
     });
 
     snapInteraction = new Snap({
@@ -598,6 +793,17 @@ watch(enableSnap, (value) => {
     }
 });
 
+watch(localVisibleLayers, (visible) => {
+    props.layers.forEach((layer) => {
+        let l = layerMap.get(layer.value);
+
+        if (!l) return;
+
+        if (visible.some((visl) => visl.value === layer.value)) toggleLayerVisibility(l, true);
+        else toggleLayerVisibility(l, false);
+    })
+})
+
 function fitMapToContainer() {
     const mapWidth = 1920;
     const mapHeight = 1080;
@@ -628,6 +834,28 @@ function createSolidColorTile(color, tileSize = 256) {
     context.fillStyle = color;
     context.fillRect(0, 0, tileSize, tileSize);
     return canvas;
+}
+
+function setSelectedShapeToRectangle() {
+    let f = selectInteraction.getFeatures().getArray()[0];
+    if (f) setShapeToRectangle(f);
+}
+
+function setShapeToRectangle(feature) {
+    const extent = feature.getGeometry().getExtent();
+
+    const coords = [
+        [extent[0], extent[1]],
+        [extent[2], extent[1]],
+        [extent[2], extent[3]],
+        [extent[0], extent[3]],
+        [extent[0], extent[1]]
+    ];
+
+    const geometry = feature.getGeometry();
+    if (geometry.getType() === 'Polygon') {
+        geometry.setCoordinates([coords]);
+    }
 }
 
 function removeNearlyColinearPoints(coords, tolerance = 1e-6) {
@@ -687,6 +915,11 @@ function simplifyPolygon(polygonGeometry, tolerance = 1e-6) {
     });
 
     polygonGeometry.setCoordinates(rings);
+}
+
+function toggleLayerVisibility(layer, value = null) {
+    if (!value) value = !layer.getVisible();
+    layer.setVisible(value);
 }
 
 </script>

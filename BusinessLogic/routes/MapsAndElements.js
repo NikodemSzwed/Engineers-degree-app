@@ -144,8 +144,9 @@ router.put('/:id', async (req, res) => {
         if (allowence.length > 0) {
             return res.status(403).json({ error: 'You are not allowed to update some or all of those elements' });
         }
+        if (!req.body.ETID || req.body.ETID == 1) delete req.body.ParentEID;
+        delete req.body.ETID;
 
-        //dodać blokowanie zamiany ETID oraz ParentEID dla ETID = 1
         let updatedElement = await MapsAndElements.update(removePKandFieldsNotInModel(req.body, MapsAndElements), {
             where: {
                 EID: req.params.id,
@@ -159,6 +160,34 @@ router.put('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
     try {
+        if (req.body.ETID == 1 && !req.decodedToken.admin) {
+            throw new Error('You are not allowed to delete maps');
+        }
+
+        let allowedMaps = getAllowedMaps(req.cookies['WarehouseLogisticsToken']);
+        let EIDs = [req.params.id];
+        const query = `
+            WITH RECURSIVE MapElements AS (
+                SELECT * FROM MapsAndElements WHERE EID IN (:EIDs)
+                UNION
+                SELECT me.* FROM MapsAndElements me
+                INNER JOIN MapElements ON me.EID = MapElements.ParentEID
+            )
+            SELECT EID FROM MapElements
+            WHERE ETID = 1 AND EID NOT IN (:maps);
+        `;
+
+        const rawData = await db.query(query, {
+            replacements: { EIDs: EIDs, maps: allowedMaps },
+            type: db.QueryTypes.SELECT,
+        });
+
+        const allowence = rawData.map(row => MapsAndElements.build(row, { isNewRecord: false }));
+
+        if (allowence.length > 0) {
+            return res.status(403).json({ error: 'You are not allowed to delete some or all of those elements' });
+        }
+
         await MapsAndElements.destroy({
             where: {
                 EID: req.params.id,
