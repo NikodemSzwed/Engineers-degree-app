@@ -124,12 +124,13 @@ async function seed() {
             { GID: 2, EID: 6 },
         ]);
 
+        let color = 'green';
         await Users.bulkCreate([
             {
                 login: 'Administrator',
                 email: 'tak@wp.pl',
                 passwd: bcrypt.hashSync('ZAQ12wsx@#', 10),
-                PersonalSettings_json: '{"primaryColor":"green","darkMode":true}',
+                PersonalSettings_json: `{"primaryColor":{"50":"{${color}.50}","100":"{${color}.100}","200":"{${color}.200}","300":"{${color}.300}","400":"{${color}.400}","500":"{${color}.500}","600":"{${color}.600}","700":"{${color}.700}","800":"{${color}.800}","900":"{${color}.900}","950":"{${color}.950}"},"darkMode":true}`,
             },
             { login: 'Kierownik', email: 'tak2@wp.pl', passwd: bcrypt.hashSync('ZAQ12wsx@#', 10) },
         ]);

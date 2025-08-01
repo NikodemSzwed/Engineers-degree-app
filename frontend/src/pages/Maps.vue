@@ -18,7 +18,7 @@
             </Card>
             <Map class=" min-h-[50vh]" :name="name" :mode="mode.value" :enable-snap="enableSnap"
                 :enable-simplify-geometry="enableSimplifyGeometry" :layers="layers" :visible-layers="choosenViewLayers"
-                :edit-layer="choosenEditLayer" ref="map"></Map>
+                :edit-layer="choosenEditLayer" ref="map" v-model:selected="selected"></Map>
         </div>
 
         <Card class="flex-1" v-if="editAvailable">
@@ -62,10 +62,10 @@
                         <span v-else-if="mode.value == 'modify' || mode.value == 'modifyPolygon'">Wybrany element</span>
                         <div class="flex flex-col gap-3" v-if="selected">
                             <FloatLabel variant="on" v-if="mode.value != 'view'">
-                                <InputText fluid></InputText>
+                                <InputText fluid v-model="selected.name" id="on_label_name"></InputText>
                                 <label :for="'on_label_name'">Nazwa</label>
                             </FloatLabel>
-                            <Button fluid @click="" v-if="mode.value != 'view'">Usuń</Button>
+                            <Button fluid @click="deleteSelectedShape" v-if="mode.value != 'view'">Usuń</Button>
                         </div>
                         <div v-else class="w-full flex items-center justify-center text-sm text-surface-400">
                             <span v-if="mode.value == 'draw'">Dodaj element</span>
@@ -133,5 +133,10 @@ const enableSimplifyGeometry = ref(true);
 
 function setSelectedShapeToRectangle() {
     map.value?.setSelectedShapeToRectangle();
+}
+
+function deleteSelectedShape() {
+    map.value?.deleteSelectedShape();
+    selected.value = null;
 }
 </script>

@@ -21,9 +21,9 @@
         </Card>
 
 
-        <!-- <div class="flex flex-1 bg-red-500">
-            asd
-        </div> -->
+        <!-- <img src="@/assets/vue.svg">
+
+        </img> -->
         <!-- <div id="sector-icon" style="position: absolute;">
             <Card>
                 <template #content>
@@ -45,7 +45,7 @@ import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import { Draw, Modify, Select, Snap, Translate } from 'ol/interaction';
 // import { defaults as defaultInteractions } from 'ol/interaction';
-import { Style, Stroke, Fill, Text } from 'ol/style';
+import { Style, Stroke, Fill, Text, Icon } from 'ol/style';
 import { createBox } from 'ol/interaction/Draw';
 import Feature from 'ol/Feature';
 import { Polygon, LineString, Point, LinearRing, GeometryCollection, MultiLineString, MultiPoint, MultiPolygon } from 'ol/geom';
@@ -63,6 +63,10 @@ import Transform from 'ol-ext/interaction/Transform';
 // import { fromExtent } from 'ol/geom/Polygon';
 import { useUserStore } from '../../stores/userData';
 import Overlay from 'ol/Overlay';
+import { hexToRgbaString, rgbToHexString } from '../../services/themeChanger';
+import { fitMapToContainer, setShapeToRectangle, toggleLayerVisibility, simplifyPolygon } from './mapUtils';
+import { all } from 'axios';
+// import Icon from 'ol/style/Icon';
 
 // const parser = new jsts.io.OL3Parser();
 // parser.inject(
@@ -103,13 +107,18 @@ const props = defineProps({
     editLayer: {
         type: Object,
         default: 'physical'
+    },
+    selected: {
+        type: Object,
+        default: null
     }
 });
 
-const emit = defineEmits(['update:mode', 'update:enableSnap', 'update:enableSimplifyGeometry', 'update:visibleLayers']);
+const emit = defineEmits(['update:mode', 'update:enableSnap', 'update:enableSimplifyGeometry', 'update:visibleLayers', 'update:selected']);
 
 defineExpose({
     setSelectedShapeToRectangle,
+    deleteSelectedShape,
 });
 
 const currentMode = computed({
@@ -118,7 +127,6 @@ const currentMode = computed({
         emit('update:mode', value);
     }
 });
-const snapTolerance = 10;
 const enableSnap = computed({
     get: () => props.enableSnap,
     set: (value) => {
@@ -137,61 +145,203 @@ const localVisibleLayers = computed({
         emit('update:visibleLayers', value);
     }
 })
+const selected = computed({
+    get: () => props.selected,
+    set: (value) => {
+        emit('update:selected', value);
+    }
+})
 
 
 const mapContainer = ref(null);
-
-const sectorSource = new VectorSource();
-const sectorLayer = new VectorLayer({
-    source: sectorSource,
-    style: new Style({
-        stroke: new Stroke({ color: getComputedStyle(document.documentElement).getPropertyValue('--color-primary'), width: 3 }),
-        fill: new Fill({ color: 'rgba(0, 255, 0, 0.2)' }),
-    }),
-    renderBuffer: 1000,
-});
-
-const backgroundSource = new VectorSource();
-const backgroundLayer = new VectorLayer({
-    source: backgroundSource,
-    style: new Style({
-        stroke: new Stroke({ color: 'red', width: 3 }),
-        fill: new Fill({ color: 'rgba(100, 100, 100, 1)' }),
-    }),
-    renderBuffer: 1000,
-})
-
-const zoneSource = new VectorSource();
-const zoneLayer = new VectorLayer({
-    source: zoneSource,
-    style: new Style({
-        stroke: new Stroke({ color: 'orange', width: 3 }),
-        fill: new Fill({ color: 'rgba(100, 100, 100, 0.1)' }),
-    }),
-    renderBuffer: 1000,
-    zIndex: 100
-})
-
-let layerMap = new Map();
-layerMap.set('physical', sectorLayer);
-layerMap.set('zones', zoneLayer);
-
 let map;
+let allLayers = [];
+let layerMap = new Map();
 
-let drawInteraction, modifyInteraction, selectInteraction, snapInteraction, snapToBoundary;
-let transform;
-let translate;
-let dragPanInteraction = new DragPan();
-let cursorWasOutside = false;
+//interactions
+let drawInteraction;
+let modifyInteraction;
+let selectInteraction
+let snapInteraction, snapToBoundary;
+let transformInteraction;
 
+//interaction helpers
+const snapTolerance = 10;
 let originalGeom = null;
-
-// const enableZones = ref(false);
-// const lastSnapDistances = new Map();
 let lastPointerCoord = null;
 
 
+
+// const sectorSource = new VectorSource();
+// const sectorLayer = new VectorLayer({
+//     source: sectorSource,
+//     style: new Style({
+//         stroke: new Stroke({ color: getComputedStyle(document.documentElement).getPropertyValue('--color-primary'), width: 3 }),
+//         fill: new Fill({ color: 'rgba(0, 255, 0, 0.2)' }),
+//     }),
+//     renderBuffer: 1000,
+// });
+
+// const backgroundSource = new VectorSource();
+// const backgroundLayer = new VectorLayer({
+//     source: backgroundSource,
+//     style: new Style({
+//         stroke: new Stroke({ color: 'red', width: 3 }),
+//         fill: new Fill({ color: 'rgba(100, 100, 100, 1)' }),
+//     }),
+//     renderBuffer: 1000,
+// })
+
+// const zoneSource = new VectorSource();
+// const zoneLayer = new VectorLayer({
+//     source: zoneSource,
+//     style: new Style({
+//         stroke: new Stroke({ color: 'orange', width: 3 }),
+//         fill: new Fill({ color: 'rgba(100, 100, 100, 0.1)' }),
+//     }),
+//     renderBuffer: 1000,
+//     zIndex: 100
+// })
+
+
+// layerMap.set('physical', sectorLayer);
+// layerMap.set('zones', zoneLayer);
+
+
 onMounted(() => {
+    const primaryHex = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim();
+
+    const mainStyle = new Style({
+        stroke: new Stroke({
+            color: primaryHex,
+            width: 2,
+        }),
+        fill: new Fill({
+            color: hexToRgbaString(primaryHex, 0.1),
+        }),
+        text: new Text({
+            font: '14px Calibri,sans-serif',
+            fill: new Fill({ color: userData.personalSettings.darkMode ? '#fff' : '#000' }),
+            overflow: false,
+        }),
+    });
+    // const backgroundStyle = new Style({
+    //     stroke: new Stroke({
+    //         color: getComputedStyle(document.documentElement).getPropertyValue('--color-primary'),
+    //         width: 2,
+    //     }),
+    //     fill: new Fill({
+    //         color: 'rgba(100, 100, 100, 0.1)',
+    //     }),
+    //     text: new Text({
+    //         text: props.name,
+    //         font: '18px Calibri,sans-serif',
+    //         fill: new Fill({ color: userData.personalSettings.darkMode ? '#fff' : '#000' }),
+    //         overflow: true,
+    //     }),
+    // });
+
+    function LODcontrol(map, sourceStyle, options = {}) {
+        if (options.minZoom === undefined) options.minZoom = 0;
+        if (options.maxZoom === undefined) options.maxZoom = 10;
+        if (options.color === undefined) options.color = '#ffffff';
+        if (options.fillColor === undefined) options.fillColor = null;
+        if (options.font === undefined) options.font = '14px Calibri,sans-serif';
+
+        const localStyle = sourceStyle.clone();
+
+        // changes applied once
+        localStyle.getStroke().setColor(options.color);
+        if (options.fillColor) localStyle.getFill().setColor(options.fillColor);
+        else localStyle.getFill().setColor(hexToRgbaString(options.color, 0.1));
+
+        localStyle.getText().setFont(options.font);
+
+        // dynamic changes
+        return (feature, resolution) => {
+            const zoom = map.getView().getZoomForResolution(resolution);
+
+            const style = localStyle.clone();
+
+            if (zoom >= options.minZoom && zoom <= options.maxZoom) {
+                style.getText().setText(feature.name || '');
+            }
+
+            return style;
+        }
+    };
+
+    let tempColors = ['#00ff00', '#ff0000', '#0000ff'];
+
+    function generateLayers(map, layers) {
+        const backgroundSource = new VectorSource();
+        const backgroundLayer = new VectorLayer({
+            source: backgroundSource,
+            style: LODcontrol(map, mainStyle, { minZoom: 0, maxZoom: 4, color: primaryHex, fillColor: 'rgba(100, 100, 100, 0.1)', font: '18px Calibri,sans-serif' }),
+            renderBuffer: 1000,
+        });
+        allLayers.push(backgroundLayer);
+        map.addLayer(backgroundLayer);
+
+        layers.forEach((layer, i) => {
+            const newSource = new VectorSource();
+            const newLayer = new VectorLayer({
+                source: newSource,
+                style: LODcontrol(map, mainStyle, { minZoom: 0.5, maxZoom: 7, color: tempColors[i] }),
+                renderBuffer: 1000,
+            });
+            layerMap.set(layer.value, newLayer);
+            allLayers.push(newLayer);
+            map.addLayer(newLayer);
+        })
+
+        const alertSource = new VectorSource();
+        const alertLayer = new VectorLayer({
+            source: alertSource,
+            style: (feature) => {
+                return new Style({
+                    image: new Icon({
+                        src: './src/assets/vue.svg',
+                        scale: 1,
+                    }),
+                });
+            },
+        });
+        allLayers.push(alertLayer);
+        map.addLayer(alertLayer);
+    }
+
+    function updateAlertPoints(alertedIds) {
+        allLayers[allLayers.length - 1].getSource().clear();
+
+        allLayers[1].getSource().getFeatures().forEach((feature) => {
+            const id = feature.id;
+            if (!alertedIds.includes(id)) return;
+
+            const extent = feature.getGeometry().getExtent();
+            const topCenter = [(extent[0] + extent[2]) / 2, extent[3]];
+
+            const alertFeature = new Feature({
+                geometry: new Point(topCenter),
+            });
+            console.log("🚀 ~ updateAlertPoints ~ alertFeature:", alertFeature)
+
+            allLayers[allLayers.length - 1].getSource().addFeature(alertFeature);
+        });
+    }
+
+    function generateResolutions(samples = 10, shift = 0, samplesStep = 1, mixinStaticResolutions = []) {
+        let resolutions = [];
+        for (let i = samples; i > 0; i -= samplesStep) {
+            resolutions.push(Math.pow(2, i - samples / 2 + shift));
+        }
+
+        resolutions.push(...mixinStaticResolutions);
+        resolutions = resolutions.sort((a, b) => b - a);
+
+        return resolutions;
+    }
+
     // const mapContainerRect = mapContainer.value.getBoundingClientRect();
     let width = 1920;//mapContainerRect.width;
     let height = 1080;//mapContainerRect.height;
@@ -199,7 +349,7 @@ onMounted(() => {
 
     map = new olMap({
         target: mapContainer.value,
-        layers: [backgroundLayer, sectorLayer],
+        layers: [],
         // interactions: defaultInteractions({ dragPan: false }),
         view: new View({
             // center: [0, 0],
@@ -207,7 +357,8 @@ onMounted(() => {
             // maxZoom: 8,
             // zoom: 0,
             // extent: [0, 0, width, height],
-            resolutions: [6, 4, 2, 1, 0.5, 0.25, 0.125, 0.0625, 0.03125, 0.015625],
+            // resolutions: [6, 4, 2, 1, 0.5, 0.25, 0.125, 0.0625, 0.03125, 0.015625],
+            resolutions: generateResolutions(10, -2, 1, [6]),
             center: [width / 2, height / 2],
             // zoom: 1,
             constrainOnlyCenter: true,
@@ -215,20 +366,26 @@ onMounted(() => {
             constrainResolution: false,
         }),
     });
-    map.on('postrender', function (event) {
-        const context = event.context;
+    // map.on('postrender', function (event) {
+    //     const context = event.context;
+    //     console.log("🚀 ~ context:", context)
 
-        if (context && !context._patched && context.canvas) {
-            const canvas = context.canvas;
+    //     if (context && !context._patched && context.canvas) {
+    //         const canvas = context.canvas;
 
-            const newCtx = canvas.getContext('2d', { willReadFrequently: true });
-            if (newCtx) {
-                event.context = newCtx;
-                newCtx._patched = true;
-            }
-        }
-    });
-    map.addLayer(zoneLayer);
+    //         const newCtx = canvas.getContext('2d', { willReadFrequently: true });
+    //         console.log("🚀 ~ newCtx:", newCtx)
+    //         if (newCtx) {
+    //             event.context = newCtx;
+    //             newCtx._patched = true;
+    //         }
+    //     }
+    // });
+    // map.addLayer(zoneLayer);
+
+    generateLayers(map, props.layers);
+    console.log("🚀 ~ allLayers:", allLayers)
+    console.log("🚀 ~ layerMap:", layerMap)
 
     ///******** overlay for pure html - doesn't scale */
     // const sectorIconElement = document.getElementById('sector-icon');
@@ -273,57 +430,49 @@ onMounted(() => {
     //     }),
     // });
 
-    function hexToRgba(hex, alpha) {
-        const r = parseInt(hex.slice(1, 3), 16);
-        const g = parseInt(hex.slice(3, 5), 16);
-        const b = parseInt(hex.slice(5, 7), 16);
-        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-    }
 
 
-    const primaryHex = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim();
-    const primaryWithAlpha = hexToRgba(primaryHex, 0.1);
 
-    const sectorStyle = new Style({
-        stroke: new Stroke({
-            color: primaryHex,
-            width: 2,
-        }),
-        fill: new Fill({
-            color: primaryWithAlpha,
-        }),
-        text: new Text({
-            font: '14px Calibri,sans-serif',
-            fill: new Fill({ color: userData.personalSettings.darkMode ? '#fff' : '#000' }),
-            overflow: false,
-            // textAlign: 'right',
-            // textBaseline: 'top',
-        }),
-    });
 
-    const dynamicStyleFunction = (feature) => {
-        const style = sectorStyle.clone();
-        style.getText().setText(feature.name || '');
-        return style;
-    };
 
-    const backgroundStyle = new Style({
-        stroke: new Stroke({
-            color: getComputedStyle(document.documentElement).getPropertyValue('--color-primary'),
-            width: 2,
-        }),
-        fill: new Fill({
-            color: 'rgba(100, 100, 100, 0.1)',
-        }),
-        text: new Text({
-            text: props.name,
-            font: '18px Calibri,sans-serif',
-            fill: new Fill({ color: userData.personalSettings.darkMode ? '#fff' : '#000' }),
+    // const sectorStyle = new Style({
+    //     stroke: new Stroke({
+    //         color: primaryHex,
+    //         width: 2,
+    //     }),
+    //     fill: new Fill({
+    //         color: rgbToHexString(primaryHex, 0.1),
+    //     }),
+    //     text: new Text({
+    //         font: '14px Calibri,sans-serif',
+    //         fill: new Fill({ color: userData.personalSettings.darkMode ? '#fff' : '#000' }),
+    //         overflow: false,
+    //         // textAlign: 'right',
+    //         // textBaseline: 'top',
+    //     }),
+    // });
 
-            // stroke: new Stroke({ color: '#fff', width: 3 }),
-            overflow: true,
-        }),
-    });
+    // const dynamicStyleFunction = (feature) => {
+    //     const style = sectorStyle.clone();
+    //     style.getText().setText(feature.name || '');
+    //     return style;
+    // };
+
+    // const backgroundStyle = new Style({
+    //     stroke: new Stroke({
+    //         color: getComputedStyle(document.documentElement).getPropertyValue('--color-primary'),
+    //         width: 2,
+    //     }),
+    //     fill: new Fill({
+    //         color: 'rgba(100, 100, 100, 0.1)',
+    //     }),
+    //     text: new Text({
+    //         text: props.name,
+    //         font: '18px Calibri,sans-serif',
+    //         fill: new Fill({ color: userData.personalSettings.darkMode ? '#fff' : '#000' }),
+    //         overflow: true,
+    //     }),
+    // });
     // console.log("🚀 ~ document.documentElement:", userData.personalSettings.darkMode)
 
     let size = 250;
@@ -344,7 +493,9 @@ onMounted(() => {
                 [x, y],
             ]])
         )
-        f.name = 'Rectangle' + a++;
+        f.id = a;
+        f.name = 'A' + a++;
+
         // console.log("🚀 ~ f:", f)
         return f;
     }
@@ -360,8 +511,8 @@ onMounted(() => {
     ));
     // rectangles[0].setStyle(sectorStyle);
     // updateSectorIconPosition(rectangles[0]);
-    sectorSource.addFeatures(rectangles);
-    sectorLayer.setStyle(dynamicStyleFunction);
+    allLayers[1].getSource().addFeatures(rectangles);
+    // sectorLayer.setStyle(dynamicStyleFunction);
 
     const backgroundRectangle = new Feature(
         new Polygon([[
@@ -372,8 +523,10 @@ onMounted(() => {
             [0, 0],
         ]])
     )
-    backgroundSource.addFeature(backgroundRectangle);
-    backgroundRectangle.setStyle(backgroundStyle);
+    backgroundRectangle.name = props.name;
+    allLayers[0].getSource().addFeature(backgroundRectangle);
+    // backgroundSource.addFeature(backgroundRectangle);
+    // backgroundRectangle.setStyle(backgroundStyle);
 
     const zone1 = new Feature(
         new Polygon([[
@@ -384,10 +537,17 @@ onMounted(() => {
             [200, 200],
         ]])
     )
-    zoneSource.addFeature(zone1);
+    // zoneSource.addFeature(zone1);
+    allLayers[2].getSource().addFeature(zone1);
+
+    updateAlertPoints([0]);
+
+    selectInteraction = new Select({
+        layers: [allLayers[1]],
+    });
 
     drawInteraction = new Draw({
-        source: sectorSource,
+        source: allLayers[1].getSource(),
         type: 'Circle',
         geometryFunction: (coordinates, geometry) => {
             const boxGeom = createBox()(coordinates, geometry);
@@ -422,9 +582,11 @@ onMounted(() => {
         }
     });
 
-    selectInteraction = new Select({
-        layers: [sectorLayer],
+    drawInteraction.on('drawend', (e) => {
+        selectInteraction.getFeatures().clear();
+        selectInteraction.getFeatures().push(e.feature);
     });
+
 
     modifyInteraction = new Modify({
         features: selectInteraction.getFeatures(),
@@ -446,8 +608,6 @@ onMounted(() => {
 
             if (!isInside && originalGeom) {
                 feature.setGeometry(originalGeom.clone());
-            } else {
-                originalGeom = geometry.clone();
             }
 
             if (enableSimplifyGeometry.value) {
@@ -455,10 +615,10 @@ onMounted(() => {
                 simplifyPolygon(geom, 3);
             }
         });
-
+        originalGeom = null;
     });
 
-    transform = new Transform({
+    transformInteraction = new Transform({
         rotate: true,
         translateFeature: true,
         translate: true,
@@ -471,14 +631,23 @@ onMounted(() => {
     });
 
     snapInteraction = new Snap({
-        source: sectorSource,
+        source: allLayers[1].getSource(),
     })
     snapToBoundary = new Snap({
-        source: backgroundSource
+        source: allLayers[0].getSource(),
     });
 
-    transform.on('translating', (e) => {
-        const featuresToSnap = sectorLayer.getSource().getFeatures();
+    transformInteraction.on('select', (e) => {
+        selected.value = e.features.item(0);
+        originalGeom = e.features.item(0)?.getGeometry().clone();
+    })
+    transformInteraction.on('selectend', (e) => {
+        selected.value = null;
+        originalGeom = null;
+    })
+
+    transformInteraction.on('translating', (e) => {
+        const featuresToSnap = allLayers[1].getSource().getFeatures();
 
         const currentPointerCoord = map.getCoordinateFromPixel(e.pixel);
 
@@ -594,7 +763,7 @@ onMounted(() => {
         });
     });
 
-    transform.on('rotating', (e) => {
+    transformInteraction.on('rotating', (e) => {
         const feature = e.feature;
         const geometry = feature.getGeometry();
         const extent = geometry.getExtent();
@@ -611,7 +780,7 @@ onMounted(() => {
             originalGeom = geometry.clone();
         }
     })
-    transform.on('scaling', (e) => {
+    transformInteraction.on('scaling', (e) => {
         const feature = e.feature;
         const geometry = feature.getGeometry();
         const extent = geometry.getExtent();
@@ -672,60 +841,12 @@ onMounted(() => {
     //     //     console.log("✅ Inside");
     //     // }
 
-
-
-    translate = new Translate({ features: selectInteraction.getFeatures() });
-    translate.on('translating', (e) => {
-        const currentPointerCoord = map.getCoordinateFromPixel(e.mapBrowserEvent.pixel);
-
-        const outsideTop = currentPointerCoord[1] > mapExtent[3];
-        const outsideBottom = currentPointerCoord[1] < mapExtent[1];
-        const outsideLeft = currentPointerCoord[0] < mapExtent[0];
-        const outsideRight = currentPointerCoord[0] > mapExtent[2];
-
-        e.features.forEach((feature) => {
-            const geometry = feature.getGeometry();
-            const extent = geometry.getExtent();
-
-            let dx = 0;
-            let dy = 0;
-
-            if (outsideLeft) {
-                dx = mapExtent[0] - extent[0];
-            } else if (outsideRight) {
-                dx = mapExtent[2] - extent[2];
-            } else {
-                if (extent[0] < mapExtent[0]) {
-                    dx = mapExtent[0] - extent[0];
-                } else if (extent[2] > mapExtent[2]) {
-                    dx = mapExtent[2] - extent[2];
-                }
-            }
-
-            if (outsideBottom) {
-                dy = mapExtent[1] - extent[1];
-            } else if (outsideTop) {
-                dy = mapExtent[3] - extent[3];
-            } else {
-                if (extent[1] < mapExtent[1]) {
-                    dy = mapExtent[1] - extent[1];
-                } else if (extent[3] > mapExtent[3]) {
-                    dy = mapExtent[3] - extent[3];
-                }
-            }
-
-            if (dx !== 0 || dy !== 0) {
-                geometry.translate(dx, dy);
-            }
-        });
-    });
-
-    dragPanInteraction.setActive(false);
+    // dragPanInteraction.setActive(false);
     drawInteraction.setActive(false);
     modifyInteraction.setActive(false);
     selectInteraction.setActive(false);
-    translate.setActive(false);
-    transform.setActive(false);
+    // translate.setActive(false);
+    transformInteraction.setActive(false);
     snapInteraction.setActive(false);
     snapToBoundary.setActive(false);
 
@@ -733,29 +854,29 @@ onMounted(() => {
     map.addInteraction(drawInteraction);
     map.addInteraction(selectInteraction);
     map.addInteraction(modifyInteraction);
-    map.addInteraction(translate);
-    map.addInteraction(transform);
+    // map.addInteraction(translate);
+    map.addInteraction(transformInteraction);
     map.addInteraction(snapInteraction);
     map.addInteraction(snapToBoundary);
 
-    fitMapToContainer()
+    fitMapToContainer(map);
 
 });
 
 watch(currentMode, (mode) => {
-    dragPanInteraction.setActive(false);
+    // dragPanInteraction.setActive(false);
     drawInteraction.setActive(false);
     modifyInteraction.setActive(false);
     selectInteraction.setActive(false);
     selectInteraction.getFeatures().clear();
-    translate.setActive(false);
-    transform.setActive(false);
+    // translate.setActive(false);
+    transformInteraction.setActive(false);
     snapInteraction.setActive(false);
     snapToBoundary.setActive(false);
 
 
     if (mode === 'draw') {
-        dragPanInteraction.setActive(true);
+        // dragPanInteraction.setActive(true);
         drawInteraction.setActive(true);
         if (enableSnap.value) {
             snapInteraction.setActive(true);
@@ -772,17 +893,17 @@ watch(currentMode, (mode) => {
     } else if (mode === 'modify') {
         // selectInteraction.setActive(true);
         // snapInteraction.setActive(true);
-        transform.setActive(true);
+        transformInteraction.setActive(true);
 
     } else if (mode === 'select') {
         selectInteraction.setActive(true);
     } else {
-        dragPanInteraction.setActive(true);
+        // dragPanInteraction.setActive(true);
     }
 
     if (selectInteraction)
         selectInteraction.on('select', (e) => {
-            console.log('Selected features:', e.selected);
+            selected.value = e.selected[0];
         });
 });
 
@@ -804,28 +925,6 @@ watch(localVisibleLayers, (visible) => {
     })
 })
 
-function fitMapToContainer() {
-    const mapWidth = 1920;
-    const mapHeight = 1080;
-
-    const container = map.getTargetElement();
-    const containerWidth = container.clientWidth;
-    const containerHeight = container.clientHeight;
-
-    const scaleX = mapWidth / containerWidth;
-    const scaleY = mapHeight / containerHeight;
-
-    const scale = Math.max(scaleX, scaleY);
-    const baseResolution = 1;
-    const newResolution = baseResolution * scale;
-
-    const centerX = mapWidth / 2;
-    const centerY = mapHeight / 2;
-
-    map.getView().setCenter([centerX, centerY]);
-    map.getView().setResolution(newResolution);
-}
-
 function createSolidColorTile(color, tileSize = 256) {
     const canvas = document.createElement('canvas');
     canvas.width = tileSize;
@@ -841,85 +940,11 @@ function setSelectedShapeToRectangle() {
     if (f) setShapeToRectangle(f);
 }
 
-function setShapeToRectangle(feature) {
-    const extent = feature.getGeometry().getExtent();
-
-    const coords = [
-        [extent[0], extent[1]],
-        [extent[2], extent[1]],
-        [extent[2], extent[3]],
-        [extent[0], extent[3]],
-        [extent[0], extent[1]]
-    ];
-
-    const geometry = feature.getGeometry();
-    if (geometry.getType() === 'Polygon') {
-        geometry.setCoordinates([coords]);
-    }
+function deleteSelectedShape() {
+    allLayers.forEach((layer) => {
+        layer.getSource().removeFeature(selected.value);
+    })
 }
 
-function removeNearlyColinearPoints(coords, tolerance = 1e-6) {
-    let changed = false;
-    let simplified = [];
-
-    if (coords.length < 4) {
-        return coords;
-    }
-
-    do {
-        changed = false;
-        simplified = [coords[0]];
-        for (let i = 1; i < coords.length - 1; i++) {
-            const [x1, y1] = coords[i - 1];
-            const [x2, y2] = coords[i];
-            const [x3, y3] = coords[i + 1];
-
-            const dx = x3 - x1;
-            const dy = y3 - y1;
-            const lenSq = dx * dx + dy * dy;
-
-            const dist = Math.abs(dy * x2 - dx * y2 + x3 * y1 - y3 * x1) / Math.sqrt(lenSq);
-
-            if (dist > tolerance) {
-                simplified.push(coords[i]);
-            } else {
-                simplified.push(...coords.slice(i + 1));
-                changed = true;
-                break;
-            }
-        }
-
-        if (!changed) {
-            simplified.push(coords[coords.length - 1]);
-        }
-
-        coords = simplified;
-
-    } while (changed && simplified.length > 3);
-
-    return simplified;
-}
-
-function simplifyPolygon(polygonGeometry, tolerance = 1e-6) {
-    const rings = polygonGeometry.getCoordinates().map((ring) => {
-        const isClosed = ring.length >= 4 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1];
-        const simplified = removeNearlyColinearPoints(ring, tolerance);
-
-        // Ensure closed ring
-        if (isClosed && (simplified[0][0] !== simplified[simplified.length - 1][0] ||
-            simplified[0][1] !== simplified[simplified.length - 1][1])) {
-            simplified.push(simplified[0]);
-        }
-
-        return simplified;
-    });
-
-    polygonGeometry.setCoordinates(rings);
-}
-
-function toggleLayerVisibility(layer, value = null) {
-    if (!value) value = !layer.getVisible();
-    layer.setVisible(value);
-}
 
 </script>
