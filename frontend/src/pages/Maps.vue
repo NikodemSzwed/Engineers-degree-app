@@ -54,6 +54,10 @@
                         <div v-if="mode.value == 'modifyPolygon'" class="flex flex-row justify-between">
                             <Button fluid @click="setSelectedShapeToRectangle">Przywróć kształt do prostokąta</Button>
                         </div>
+                        <div v-if="mode.value == 'modifyPolygon'" class="flex flex-row justify-between">
+                            <Button fluid @click="setSelectedShapePointsToClosestExtentBorder">Przyciągnij punkty do
+                                krawędzi</Button>
+                        </div>
                     </div>
 
                     <Divider></Divider>
@@ -62,7 +66,7 @@
                         <span v-else-if="mode.value == 'modify' || mode.value == 'modifyPolygon'">Wybrany element</span>
                         <div class="flex flex-col gap-3" v-if="selected">
                             <FloatLabel variant="on" v-if="mode.value != 'view'">
-                                <InputText fluid v-model="selected.name" id="on_label_name"></InputText>
+                                <InputText fluid v-model="selected.customData.name" id="on_label_name"></InputText>
                                 <label :for="'on_label_name'">Nazwa</label>
                             </FloatLabel>
                             <Button fluid @click="deleteSelectedShape" v-if="mode.value != 'view'">Usuń</Button>
@@ -118,11 +122,13 @@ const mode = ref(modes[0]);
 const layers = [
     {
         name: "Fizyczne sektory",
-        value: 'physical'
+        value: 'physical',
+        interactions: ['draw', 'modify', 'modifyPolygon']
     },
     {
         name: "Strefy",
-        value: 'zones'
+        value: 'zones',
+        interactions: ['draw', 'modify', 'modifyPolygon']
     }
 ];
 const choosenViewLayers = ref([...layers]);
@@ -133,6 +139,10 @@ const enableSimplifyGeometry = ref(true);
 
 function setSelectedShapeToRectangle() {
     map.value?.setSelectedShapeToRectangle();
+}
+
+function setSelectedShapePointsToClosestExtentBorder() {
+    map.value?.setSelectedShapePointsToClosestExtentBorder();
 }
 
 function deleteSelectedShape() {

@@ -51,7 +51,7 @@ import Feature from 'ol/Feature';
 import { Polygon, LineString, Point, LinearRing, GeometryCollection, MultiLineString, MultiPoint, MultiPolygon } from 'ol/geom';
 import { Button, Card, ToggleButton } from 'primevue';
 // import { primaryAction } from 'ol/events/condition';
-import DragPan from 'ol/interaction/DragPan';
+// import DragPan from 'ol/interaction/DragPan';
 // import TileLayer from 'ol/layer/Tile';
 // import { TileDebug } from 'ol/source';
 // import TileImage from 'ol/source/TileImage';
@@ -62,10 +62,9 @@ import Transform from 'ol-ext/interaction/Transform';
 // import * as jsts from 'jsts/dist/jsts.min.js';
 // import { fromExtent } from 'ol/geom/Polygon';
 import { useUserStore } from '../../stores/userData';
-import Overlay from 'ol/Overlay';
-import { hexToRgbaString, rgbToHexString } from '../../services/themeChanger';
-import { fitMapToContainer, setShapeToRectangle, toggleLayerVisibility, simplifyPolygon } from './mapUtils';
-import { all } from 'axios';
+// import Overlay from 'ol/Overlay';
+import { hexToRgbaString, rgbToHexString, blendColors } from '../../services/themeChanger';
+import { fitMapToContainer, setShapeToRectangle, toggleLayerVisibility, simplifyPolygon, setShapePointsToClosestExtentBorder, snapFeature, getPointerDeltaFunction, generateResolutions } from './mapUtils';
 // import Icon from 'ol/style/Icon';
 
 // const parser = new jsts.io.OL3Parser();
@@ -119,6 +118,7 @@ const emit = defineEmits(['update:mode', 'update:enableSnap', 'update:enableSimp
 defineExpose({
     setSelectedShapeToRectangle,
     deleteSelectedShape,
+    setSelectedShapePointsToClosestExtentBorder
 });
 
 const currentMode = computed({
@@ -152,7 +152,7 @@ const selected = computed({
     }
 })
 
-
+const getPointerDelta = getPointerDeltaFunction();
 const mapContainer = ref(null);
 let map;
 let allLayers = [];
@@ -168,45 +168,6 @@ let transformInteraction;
 //interaction helpers
 const snapTolerance = 10;
 let originalGeom = null;
-let lastPointerCoord = null;
-
-
-
-// const sectorSource = new VectorSource();
-// const sectorLayer = new VectorLayer({
-//     source: sectorSource,
-//     style: new Style({
-//         stroke: new Stroke({ color: getComputedStyle(document.documentElement).getPropertyValue('--color-primary'), width: 3 }),
-//         fill: new Fill({ color: 'rgba(0, 255, 0, 0.2)' }),
-//     }),
-//     renderBuffer: 1000,
-// });
-
-// const backgroundSource = new VectorSource();
-// const backgroundLayer = new VectorLayer({
-//     source: backgroundSource,
-//     style: new Style({
-//         stroke: new Stroke({ color: 'red', width: 3 }),
-//         fill: new Fill({ color: 'rgba(100, 100, 100, 1)' }),
-//     }),
-//     renderBuffer: 1000,
-// })
-
-// const zoneSource = new VectorSource();
-// const zoneLayer = new VectorLayer({
-//     source: zoneSource,
-//     style: new Style({
-//         stroke: new Stroke({ color: 'orange', width: 3 }),
-//         fill: new Fill({ color: 'rgba(100, 100, 100, 0.1)' }),
-//     }),
-//     renderBuffer: 1000,
-//     zIndex: 100
-// })
-
-
-// layerMap.set('physical', sectorLayer);
-// layerMap.set('zones', zoneLayer);
-
 
 onMounted(() => {
     const primaryHex = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim();
@@ -225,21 +186,6 @@ onMounted(() => {
             overflow: false,
         }),
     });
-    // const backgroundStyle = new Style({
-    //     stroke: new Stroke({
-    //         color: getComputedStyle(document.documentElement).getPropertyValue('--color-primary'),
-    //         width: 2,
-    //     }),
-    //     fill: new Fill({
-    //         color: 'rgba(100, 100, 100, 0.1)',
-    //     }),
-    //     text: new Text({
-    //         text: props.name,
-    //         font: '18px Calibri,sans-serif',
-    //         fill: new Fill({ color: userData.personalSettings.darkMode ? '#fff' : '#000' }),
-    //         overflow: true,
-    //     }),
-    // });
 
     function LODcontrol(map, sourceStyle, options = {}) {
         if (options.minZoom === undefined) options.minZoom = 0;
@@ -256,6 +202,10 @@ onMounted(() => {
         else localStyle.getFill().setColor(hexToRgbaString(options.color, 0.1));
 
         localStyle.getText().setFont(options.font);
+        let textDefaultColor = userData.personalSettings.darkMode ? '#ffffff' : '#000000';
+        let blendWeight = userData.personalSettings.darkMode ? 0.65 : 0.40;
+        let textColor = blendColors(options.color, textDefaultColor, blendWeight)
+        localStyle.getText().setFill(new Fill({ color: textColor }));
 
         // dynamic changes
         return (feature, resolution) => {
@@ -264,7 +214,7 @@ onMounted(() => {
             const style = localStyle.clone();
 
             if (zoom >= options.minZoom && zoom <= options.maxZoom) {
-                style.getText().setText(feature.name || '');
+                style.getText().setText(feature.customData?.name || '');
             }
 
             return style;
@@ -315,7 +265,7 @@ onMounted(() => {
         allLayers[allLayers.length - 1].getSource().clear();
 
         allLayers[1].getSource().getFeatures().forEach((feature) => {
-            const id = feature.id;
+            const id = feature?.customData?.id;
             if (!alertedIds.includes(id)) return;
 
             const extent = feature.getGeometry().getExtent();
@@ -330,62 +280,30 @@ onMounted(() => {
         });
     }
 
-    function generateResolutions(samples = 10, shift = 0, samplesStep = 1, mixinStaticResolutions = []) {
-        let resolutions = [];
-        for (let i = samples; i > 0; i -= samplesStep) {
-            resolutions.push(Math.pow(2, i - samples / 2 + shift));
-        }
 
-        resolutions.push(...mixinStaticResolutions);
-        resolutions = resolutions.sort((a, b) => b - a);
 
-        return resolutions;
-    }
-
-    // const mapContainerRect = mapContainer.value.getBoundingClientRect();
-    let width = 1920;//mapContainerRect.width;
-    let height = 1080;//mapContainerRect.height;
+    let width = 1920;
+    let height = 1080;
     let mapExtent = [0, 0, width, height];
 
     map = new olMap({
         target: mapContainer.value,
         layers: [],
-        // interactions: defaultInteractions({ dragPan: false }),
         view: new View({
-            // center: [0, 0],
             // minZoom: 0,
             // maxZoom: 8,
-            // zoom: 0,
-            // extent: [0, 0, width, height],
-            // resolutions: [6, 4, 2, 1, 0.5, 0.25, 0.125, 0.0625, 0.03125, 0.015625],
-            resolutions: generateResolutions(10, -2, 1, [6]),
-            center: [width / 2, height / 2],
             // zoom: 1,
+            resolutions: generateResolutions(10, -2, 1, [6]),
+            // center: [width / 2, height / 2],
             constrainOnlyCenter: true,
             extent: mapExtent,
             constrainResolution: false,
         }),
     });
-    // map.on('postrender', function (event) {
-    //     const context = event.context;
-    //     console.log("🚀 ~ context:", context)
-
-    //     if (context && !context._patched && context.canvas) {
-    //         const canvas = context.canvas;
-
-    //         const newCtx = canvas.getContext('2d', { willReadFrequently: true });
-    //         console.log("🚀 ~ newCtx:", newCtx)
-    //         if (newCtx) {
-    //             event.context = newCtx;
-    //             newCtx._patched = true;
-    //         }
-    //     }
-    // });
-    // map.addLayer(zoneLayer);
 
     generateLayers(map, props.layers);
-    console.log("🚀 ~ allLayers:", allLayers)
-    console.log("🚀 ~ layerMap:", layerMap)
+    // console.log("🚀 ~ allLayers:", allLayers)
+    // console.log("🚀 ~ layerMap:", layerMap)
 
     ///******** overlay for pure html - doesn't scale */
     // const sectorIconElement = document.getElementById('sector-icon');
@@ -410,71 +328,6 @@ onMounted(() => {
     //     sectorOverlay.setPosition(topRight);
     // }
 
-
-
-
-    // const labelStyle = new Style({
-    //     stroke: new Stroke({
-    //         color: 'blue',
-    //         width: 2,
-    //     }),
-    //     fill: new Fill({
-    //         color: 'rgba(0, 0, 255, 0.1)',
-    //     }),
-    //     text: new Text({
-    //         text: 'Your Label',
-    //         font: '14px Calibri,sans-serif',
-    //         fill: new Fill({ color: '#000' }),
-    //         stroke: new Stroke({ color: '#fff', width: 3 }),
-    //         overflow: true,
-    //     }),
-    // });
-
-
-
-
-
-
-    // const sectorStyle = new Style({
-    //     stroke: new Stroke({
-    //         color: primaryHex,
-    //         width: 2,
-    //     }),
-    //     fill: new Fill({
-    //         color: rgbToHexString(primaryHex, 0.1),
-    //     }),
-    //     text: new Text({
-    //         font: '14px Calibri,sans-serif',
-    //         fill: new Fill({ color: userData.personalSettings.darkMode ? '#fff' : '#000' }),
-    //         overflow: false,
-    //         // textAlign: 'right',
-    //         // textBaseline: 'top',
-    //     }),
-    // });
-
-    // const dynamicStyleFunction = (feature) => {
-    //     const style = sectorStyle.clone();
-    //     style.getText().setText(feature.name || '');
-    //     return style;
-    // };
-
-    // const backgroundStyle = new Style({
-    //     stroke: new Stroke({
-    //         color: getComputedStyle(document.documentElement).getPropertyValue('--color-primary'),
-    //         width: 2,
-    //     }),
-    //     fill: new Fill({
-    //         color: 'rgba(100, 100, 100, 0.1)',
-    //     }),
-    //     text: new Text({
-    //         text: props.name,
-    //         font: '18px Calibri,sans-serif',
-    //         fill: new Fill({ color: userData.personalSettings.darkMode ? '#fff' : '#000' }),
-    //         overflow: true,
-    //     }),
-    // });
-    // console.log("🚀 ~ document.documentElement:", userData.personalSettings.darkMode)
-
     let size = 250;
     const corners = [
         [0, 0],
@@ -493,10 +346,12 @@ onMounted(() => {
                 [x, y],
             ]])
         )
-        f.id = a;
-        f.name = 'A' + a++;
+        f.customData = {
+            name: 'A' + a,
+            id: a
+        }
+        a++;
 
-        // console.log("🚀 ~ f:", f)
         return f;
     }
     );
@@ -509,10 +364,12 @@ onMounted(() => {
             [width / 2, height / 2]
         ]])
     ));
-    // rectangles[0].setStyle(sectorStyle);
+    rectangles[rectangles.length - 1].customData = {
+        name: 'B',
+        id: a++
+    }
     // updateSectorIconPosition(rectangles[0]);
     allLayers[1].getSource().addFeatures(rectangles);
-    // sectorLayer.setStyle(dynamicStyleFunction);
 
     const backgroundRectangle = new Feature(
         new Polygon([[
@@ -523,10 +380,10 @@ onMounted(() => {
             [0, 0],
         ]])
     )
-    backgroundRectangle.name = props.name;
+    backgroundRectangle.customData = {
+        name: props.name
+    }
     allLayers[0].getSource().addFeature(backgroundRectangle);
-    // backgroundSource.addFeature(backgroundRectangle);
-    // backgroundRectangle.setStyle(backgroundStyle);
 
     const zone1 = new Feature(
         new Polygon([[
@@ -537,13 +394,15 @@ onMounted(() => {
             [200, 200],
         ]])
     )
-    // zoneSource.addFeature(zone1);
     allLayers[2].getSource().addFeature(zone1);
 
     updateAlertPoints([0]);
 
     selectInteraction = new Select({
         layers: [allLayers[1]],
+    });
+    selectInteraction.on('select', (e) => {
+        selected.value = e.selected[0];
     });
 
     drawInteraction = new Draw({
@@ -560,7 +419,6 @@ onMounted(() => {
                 Math.max(Math.min(boxExtent[3], mapExtent[3] + 1), mapExtent[1])
             ];
 
-            // console.log("🚀 ~ mapExtent:", mapExtent)
             const clippedCoords = [
                 [
                     [clippedExtent[0], clippedExtent[1]],
@@ -585,6 +443,10 @@ onMounted(() => {
     drawInteraction.on('drawend', (e) => {
         selectInteraction.getFeatures().clear();
         selectInteraction.getFeatures().push(e.feature);
+        e.feature.customData = {
+            name: ''
+        }
+        selected.value = e.feature;
     });
 
 
@@ -639,29 +501,19 @@ onMounted(() => {
 
     transformInteraction.on('select', (e) => {
         selected.value = e.features.item(0);
+        console.log("🚀 ~ e.features.item(0):", e.features.item(0))
         originalGeom = e.features.item(0)?.getGeometry().clone();
     })
     transformInteraction.on('selectend', (e) => {
+        e.features.item(0).changed();
+        console.log("🚀 ~ e.features.item(0):", typeof e.features.item(0).changed())
         selected.value = null;
+        console.log("🚀 ~ selected.value:", selected.value)
         originalGeom = null;
     })
 
     transformInteraction.on('translating', (e) => {
         const featuresToSnap = allLayers[1].getSource().getFeatures();
-
-        const currentPointerCoord = map.getCoordinateFromPixel(e.pixel);
-
-        const outsideTop = currentPointerCoord[1] > mapExtent[3];
-        const outsideBottom = currentPointerCoord[1] < mapExtent[1];
-        const outsideLeft = currentPointerCoord[0] < mapExtent[0];
-        const outsideRight = currentPointerCoord[0] > mapExtent[2];
-
-        const pointerDelta = [
-            currentPointerCoord[0] - (lastPointerCoord?.[0] ?? currentPointerCoord[0]),
-            currentPointerCoord[1] - (lastPointerCoord?.[1] ?? currentPointerCoord[1]),
-        ];
-        lastPointerCoord = currentPointerCoord;
-
 
         e.features.forEach((feature) => {
             const geometry = feature.getGeometry();
@@ -670,95 +522,32 @@ onMounted(() => {
             let dx = 0;
             let dy = 0;
 
-            let snapDx = 0;
-            let snapDy = 0;
-            let snapFound = false;
-
             if (enableSnap.value) {
                 featuresToSnap.forEach((otherFeature) => {
-                    if (otherFeature.ol_uid === feature.ol_uid) return;
 
-                    const otherGeom = otherFeature.getGeometry();
-                    const otherExtent = otherGeom.getExtent();
+                    let { snapFound, snapDx, snapDy } = snapFeature(feature, otherFeature, getPointerDelta(map, e), snapTolerance);
 
-                    const closestOnOther = otherGeom.getClosestPoint(geometry.getFirstCoordinate());
-                    const closestOnSelf = geometry.getClosestPoint(closestOnOther);
-
-                    const dxReal = closestOnOther[0] - closestOnSelf[0];
-                    const dyReal = closestOnOther[1] - closestOnSelf[1];
-                    const realDist = Math.hypot(dxReal, dyReal);
-
-                    if (realDist > snapTolerance) {
-                        return;
-                    }
-
-                    const snapVector = [
-                        closestOnOther[0] - closestOnSelf[0],
-                        closestOnOther[1] - closestOnSelf[1],
-                    ];
-
-                    const dot = snapVector[0] * pointerDelta[0] + snapVector[1] * pointerDelta[1];
-
-                    if (dot < 0) {
-                        return;
-                    }
-
-                    const distLeftRight = Math.abs(extent[0] - otherExtent[2]);
-                    const distRightLeft = Math.abs(extent[2] - otherExtent[0]);
-                    const distTopBottom = Math.abs(extent[3] - otherExtent[1]);
-                    const distBottomTop = Math.abs(extent[1] - otherExtent[3]);
-
-                    if (distLeftRight < snapTolerance) {
-                        snapDx = otherExtent[2] - extent[0];
-                        snapFound = true;
-                    } else if (distRightLeft < snapTolerance) {
-                        snapDx = otherExtent[0] - extent[2];
-                        snapFound = true;
-                    }
-
-                    if (distTopBottom < snapTolerance) {
-                        snapDy = otherExtent[1] - extent[3];
-                        snapFound = true;
-                    } else if (distBottomTop < snapTolerance) {
-                        snapDy = otherExtent[3] - extent[1];
-                        snapFound = true;
+                    if (snapFound) {
+                        if (snapDx !== 0) dx = snapDx;
+                        if (snapDy !== 0) dy = snapDy;
                     }
                 });
-
-                if (snapFound) {
-                    dx = snapDx;
-                    dy = snapDy;
-                }
-            }
-
-
-            //confy to map bounds
-            if (outsideLeft) {
-                dx = mapExtent[0] - extent[0];
-            } else if (outsideRight) {
-                dx = mapExtent[2] - extent[2];
-            } else {
-                if (extent[0] < mapExtent[0]) {
-                    dx = mapExtent[0] - extent[0];
-                } else if (extent[2] > mapExtent[2]) {
-                    dx = mapExtent[2] - extent[2];
-                }
-            }
-
-            if (outsideBottom) {
-                dy = mapExtent[1] - extent[1];
-            } else if (outsideTop) {
-                dy = mapExtent[3] - extent[3];
-            } else {
-                if (extent[1] < mapExtent[1]) {
-                    dy = mapExtent[1] - extent[1];
-                } else if (extent[3] > mapExtent[3]) {
-                    dy = mapExtent[3] - extent[3];
-                }
             }
 
             if (dx !== 0 || dy !== 0) {
                 geometry.translate(dx, dy);
+            }
+
+            const isInside =
+                extent[0] >= mapExtent[0] &&
+                extent[1] >= mapExtent[1] &&
+                extent[2] <= mapExtent[2] &&
+                extent[3] <= mapExtent[3];
+
+            if (!isInside && originalGeom) {
+                feature.setGeometry(originalGeom.clone());
+            } else {
+                originalGeom = geometry.clone();
             }
         });
     });
@@ -767,6 +556,21 @@ onMounted(() => {
         const feature = e.feature;
         const geometry = feature.getGeometry();
         const extent = geometry.getExtent();
+
+        const raw = e.angle;
+        const stepRad = (5 * Math.PI) / 180;
+        const snapped = Math.round(raw / stepRad) * stepRad;
+
+        function getCenterOfGeometry() {
+            return [(extent[0] + extent[2]) / 2, (extent[1] + extent[3]) / 2];
+        }
+
+        const center = transformInteraction.getCenter() || getCenterOfGeometry();
+
+        if (center) {
+            geometry.rotate(snapped - raw, center);
+            e.angle = snapped;
+        }
 
         const isInside =
             extent[0] >= mapExtent[0] &&
@@ -781,9 +585,35 @@ onMounted(() => {
         }
     })
     transformInteraction.on('scaling', (e) => {
+        // const featuresToSnap = allLayers[1].getSource().getFeatures();
         const feature = e.feature;
         const geometry = feature.getGeometry();
         const extent = geometry.getExtent();
+
+        //**** snap while scaling */
+        // const [scaleX, scaleY] = e.scale;
+        // console.log("🚀 ~ scaleY:", scaleY)
+
+        // let dx = 0;
+        // let dy = 0;
+
+        // if (enableSnap.value) {
+        //     featuresToSnap.forEach((otherFeature) => {
+        //         let { snapFound, snapDx, snapDy } = snapFeature(feature, otherFeature, getPointerDelta(map, e), snapTolerance);
+
+        //         if (snapFound) {
+        //             if (snapDx !== 0) dx = snapDx;
+        //             if (snapDy !== 0) dy = snapDy;
+        //         }
+        //     });
+        // }
+        // if (dx !== 0 || dy !== 0) {
+        //     geometry.translate(dx, dy);
+        // }
+
+        //TO DO 
+        //transform dx,dy into change in scale 
+        //modify scale and aplly it
 
         const isInside =
             extent[0] >= mapExtent[0] &&
@@ -795,6 +625,7 @@ onMounted(() => {
             feature.setGeometry(originalGeom.clone());
         } else {
             originalGeom = geometry.clone();
+
         }
     })
 
@@ -841,42 +672,35 @@ onMounted(() => {
     //     //     console.log("✅ Inside");
     //     // }
 
-    // dragPanInteraction.setActive(false);
+
     drawInteraction.setActive(false);
     modifyInteraction.setActive(false);
     selectInteraction.setActive(false);
-    // translate.setActive(false);
     transformInteraction.setActive(false);
     snapInteraction.setActive(false);
     snapToBoundary.setActive(false);
 
-    // map.addInteraction(dragPanInteraction);
     map.addInteraction(drawInteraction);
     map.addInteraction(selectInteraction);
     map.addInteraction(modifyInteraction);
-    // map.addInteraction(translate);
     map.addInteraction(transformInteraction);
     map.addInteraction(snapInteraction);
     map.addInteraction(snapToBoundary);
 
     fitMapToContainer(map);
-
 });
 
 watch(currentMode, (mode) => {
-    // dragPanInteraction.setActive(false);
     drawInteraction.setActive(false);
     modifyInteraction.setActive(false);
     selectInteraction.setActive(false);
     selectInteraction.getFeatures().clear();
-    // translate.setActive(false);
     transformInteraction.setActive(false);
     snapInteraction.setActive(false);
     snapToBoundary.setActive(false);
 
 
     if (mode === 'draw') {
-        // dragPanInteraction.setActive(true);
         drawInteraction.setActive(true);
         if (enableSnap.value) {
             snapInteraction.setActive(true);
@@ -885,26 +709,14 @@ watch(currentMode, (mode) => {
     } else if (mode === 'modifyPolygon') {
         selectInteraction.setActive(true);
         modifyInteraction.setActive(true);
-        // translate.setActive(true);
         if (enableSnap.value) {
             snapInteraction.setActive(true);
             snapToBoundary.setActive(true);
         }
     } else if (mode === 'modify') {
-        // selectInteraction.setActive(true);
-        // snapInteraction.setActive(true);
         transformInteraction.setActive(true);
 
-    } else if (mode === 'select') {
-        selectInteraction.setActive(true);
-    } else {
-        // dragPanInteraction.setActive(true);
     }
-
-    if (selectInteraction)
-        selectInteraction.on('select', (e) => {
-            selected.value = e.selected[0];
-        });
 });
 
 watch(enableSnap, (value) => {
@@ -925,19 +737,14 @@ watch(localVisibleLayers, (visible) => {
     })
 })
 
-function createSolidColorTile(color, tileSize = 256) {
-    const canvas = document.createElement('canvas');
-    canvas.width = tileSize;
-    canvas.height = tileSize;
-    const context = canvas.getContext('2d');
-    context.fillStyle = color;
-    context.fillRect(0, 0, tileSize, tileSize);
-    return canvas;
-}
-
 function setSelectedShapeToRectangle() {
     let f = selectInteraction.getFeatures().getArray()[0];
     if (f) setShapeToRectangle(f);
+}
+
+function setSelectedShapePointsToClosestExtentBorder() {
+    let f = selectInteraction.getFeatures().getArray()[0];
+    if (f) setShapePointsToClosestExtentBorder(f);
 }
 
 function deleteSelectedShape() {

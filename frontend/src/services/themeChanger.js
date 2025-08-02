@@ -89,6 +89,12 @@ function loadDefaultTheme() {
 }
 
 function hexToRgb(hex) {
+    const hexRegex = /^#([0-9A-F]{6})$/i;
+    if (!hexRegex.test(hex)) {
+        console.error('Color must be a valid hex color with 6 letters. Short hex colors are not supported.');
+        return;
+    }
+
     hex = hex.replace(/^#/, '');
     return {
         r: parseInt(hex.substring(0, 2), 16),
