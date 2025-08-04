@@ -1,5 +1,6 @@
 import { updatePreset } from '@primeuix/themes';
 import { useUserStore } from '../stores/userData';
+import chroma from 'chroma-js';
 import api from './api';
 
 function changePrimaryColor(color = 'blue') {
@@ -27,7 +28,7 @@ function changePrimaryColor(color = 'blue') {
 
 function changePrimaryColorToCustom(colorObject) {
     if (typeof colorObject != 'object') {
-        console.error('Color must be a valid object');
+        console.error('Color must be a valid object', colorObject);
         return;
     }
 
@@ -123,6 +124,16 @@ function hexToRgbaString(hex, alpha) {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+function generateComplementaryColors(baseColor, count) {
+    const baseHue = chroma(baseColor).get('hsl.h') || 0;
+    const step = 360 / count;
+
+    return Array.from({ length: count }, (_, i) => {
+        const newHue = (baseHue + step * i) % 360;
+        return chroma(baseColor).set('hsl.h', newHue).hex();
+    });
+}
+
 export { saveTheme, loadTheme, loadDefaultTheme };
 export { changePrimaryColor, toggleDarkMode };
-export { blendColors, hexToRgbaString, rgbToHexString };
+export { blendColors, hexToRgbaString, rgbToHexString, generateComplementaryColors };

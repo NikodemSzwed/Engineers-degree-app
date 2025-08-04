@@ -106,35 +106,41 @@ function removeNearlyColinearPoints(coords, tolerance = 1e-6) {
         return coords;
     }
 
-    do {
-        changed = false;
-        simplified = [coords[0]];
-        for (let i = 1; i < coords.length - 1; i++) {
-            const [x1, y1] = coords[i - 1];
-            const [x2, y2] = coords[i];
-            const [x3, y3] = coords[i + 1];
+    for (let i = 0; i < 2 && simplified.length < 3; i++) {
+        do {
+            changed = false;
+            simplified = [coords[0]];
+            for (let i = 1; i < coords.length - 1; i++) {
+                const [x1, y1] = coords[i - 1];
+                const [x2, y2] = coords[i];
+                const [x3, y3] = coords[i + 1];
 
-            const dx = x3 - x1;
-            const dy = y3 - y1;
-            const lenSq = dx * dx + dy * dy;
+                const dx = x3 - x1;
+                const dy = y3 - y1;
+                const lenSq = dx * dx + dy * dy;
 
-            const dist = Math.abs(dy * x2 - dx * y2 + x3 * y1 - y3 * x1) / Math.sqrt(lenSq);
+                const dist = Math.abs(dy * x2 - dx * y2 + x3 * y1 - y3 * x1) / Math.sqrt(lenSq);
 
-            if (dist > tolerance) {
-                simplified.push(coords[i]);
-            } else {
-                simplified.push(...coords.slice(i + 1));
-                changed = true;
-                break;
+                if (dist > tolerance) {
+                    simplified.push(coords[i]);
+                } else {
+                    simplified.push(...coords.slice(i + 1));
+                    changed = true;
+                    break;
+                }
             }
-        }
 
-        if (!changed) {
-            simplified.push(coords[coords.length - 1]);
-        }
+            if (!changed) {
+                simplified.push(coords[coords.length - 1]);
+            }
 
-        coords = simplified;
-    } while (changed && simplified.length > 3);
+            coords = simplified;
+        } while (changed && simplified.length > 3);
+
+        coords.pop();
+        let newFirstPoint = coords[coords.length - 1];
+        coords.unshift(newFirstPoint);
+    }
 
     return simplified;
 }
@@ -144,6 +150,7 @@ function simplifyPolygon(polygonGeometry, tolerance = 1e-6) {
         const isClosed =
             ring.length >= 4 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1];
         const simplified = removeNearlyColinearPoints(ring, tolerance);
+        console.log('🚀 ~ simplifyPolygon ~ simplified:', simplified);
 
         // Ensure closed ring
         if (
