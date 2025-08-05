@@ -150,7 +150,6 @@ function simplifyPolygon(polygonGeometry, tolerance = 1e-6) {
         const isClosed =
             ring.length >= 4 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1];
         const simplified = removeNearlyColinearPoints(ring, tolerance);
-        console.log('🚀 ~ simplifyPolygon ~ simplified:', simplified);
 
         // Ensure closed ring
         if (
@@ -168,7 +167,7 @@ function simplifyPolygon(polygonGeometry, tolerance = 1e-6) {
 }
 
 function toggleLayerVisibility(layer, value = null) {
-    if (!value) value = !layer.getVisible();
+    if (value === null) value = !layer.getVisible();
     layer.setVisible(value);
 }
 

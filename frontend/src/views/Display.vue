@@ -47,7 +47,9 @@
                         <template #content>
                             <div class="h-full overflow-y-auto">
                                 <div v-if="item.ETID == 1">
-                                    mapa
+                                    <div class="w-full h-full flex min-h-[75vh]">
+                                        <MapInterface class="flex-1"></MapInterface>
+                                    </div>
                                 </div>
                                 <div v-else-if="item.ETID == 2">
                                     <div class="flex flex-col gap-1">
@@ -139,7 +141,9 @@
         <template #default>
             <div class="h-full overflow-y-auto">
                 <div v-if="showItem.ETID == 1">
-                    mapa
+                    <div class="w-full h-full flex">
+                        <MapInterface></MapInterface>
+                    </div>
                 </div>
                 <div v-else-if="showItem.ETID == 2">
                     <div class="flex flex-col gap-1">
@@ -212,6 +216,7 @@ import api from '../services/api.js';
 import { loadDefaultTheme } from '../services/themeChanger';
 import { useRouter } from 'vue-router';
 import { connect } from '../services/websocket';
+import MapInterface from '../components/Map/MapInterface.vue';
 
 const toast = useToast();
 const router = useRouter();
@@ -220,11 +225,11 @@ const dockVisible = ref(false);
 const selectedItem = ref(null);
 const showItem = ref({});
 const itemDialog = ref(false);
-const displayUUID = ref();
+// const displayUUID = ref();
 const validated = ref(false);
 const displayName = ref(null);
 let socket;
-// const displayUUID = ref(true ? '8c029a90-074a-4f24-a2d0-d80cad6338f5' : 'f3c10244-b6eb-4267-abce-6e2809446b5c');
+const displayUUID = ref(false ? '8c029a90-074a-4f24-a2d0-d80cad6338f5' : 'f3c10244-b6eb-4267-abce-6e2809446b5c');
 const alertsPopover = ref();
 const showAlerts = ref([]);
 
@@ -290,7 +295,7 @@ const stopInactivityWatcher = runAfter10MinOfInactivity(() => {
 
 onMounted(async () => {
     loadDefaultTheme();
-    displayUUID.value = localStorage.getItem('displayUUID');
+    // displayUUID.value = localStorage.getItem('displayUUID');
     try {
         await api.post('/displays/login', {
             UUID: displayUUID.value
@@ -310,7 +315,7 @@ onMounted(async () => {
     socket.emit('join-display', 'display-' + displayUUID.value);
     socket.on('updateDisplay', (data) => {
         console.log("🚀 ~ socket.on ~ data:", data)
-        displayUUID.value = localStorage.getItem('displayUUID');
+        // displayUUID.value = localStorage.getItem('displayUUID');
         getData();
     });
     socket.on('deleteDisplay', (data) => {

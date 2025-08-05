@@ -10,10 +10,24 @@
             </template>
         </Card>
         <Dialog v-model:visible="addItemDialogVisible" header="Dodaj grupę" class="w-11/12 lg:w-1/2" modal>
-            <Form :fields="addItemFields" @submit="addItemSave" />
+            <Form :fields="addItemFields" @submit="addItemSave">
+                <template #input-allowMapEdit="{ field, $field }">
+                    <div class="flex flex-row gap-3">
+                        <label>{{ field.label }}</label>
+                        <ToggleSwitch v-model="$field.value"></ToggleSwitch>
+                    </div>
+                </template>
+            </Form>
         </Dialog>
         <Dialog v-model:visible="editItemDialogVisible" header="Edytuj grupę" class="w-11/12 lg:w-1/2" modal>
-            <Form :initial-values="initialValues" :fields="editItemFields" @submit="editItemSave" />
+            <Form :initial-values="initialValues" :fields="editItemFields" @submit="editItemSave">
+                <template #input-allowMapEdit="{ field, $field }">
+                    <div class="flex flex-row gap-3">
+                        <label>{{ field.label }}</label>
+                        <ToggleSwitch v-model="$field.value"></ToggleSwitch>
+                    </div>
+                </template>
+            </Form>
         </Dialog>
         <Dialog v-model:visible="advancedObjectViewVisible" header="Podgląd grupy" class="w-11/12 lg:w-3/4" modal
             maximizable :pt="{ content: 'bg-emphasis rounded-b-xl pt-5' }">
@@ -30,6 +44,7 @@ import { useToast } from "primevue/usetoast";
 import Toast from 'primevue/toast';
 import Card from 'primevue/card';
 import Dialog from 'primevue/dialog';
+import { ToggleSwitch } from 'primevue';
 import DataTable from '../components/DataTable/DataTable.vue';
 import api from '../services/api';
 import Form from '../components/Form/Form.vue';
@@ -114,6 +129,13 @@ const addItemFields = ref([
             check: "required",
             message: "Lista map jest wymagana."
         }]
+    },
+    {
+        name: 'allowMapEdit',
+        label: 'Zezwól na edycję przydzielonych map',
+        component: 'custom',
+        componentOptions: {},
+        conditions: []
     }
 ]);
 
@@ -193,6 +215,9 @@ async function editItem(item) {
         delete response.data.MapsAndElements;
         let values = { ...response.data, userUIDs, mapEIDs };
 
+        if (item[mainKey] == 1) editItemFields.value = addItemFields.value.filter(item => item.name !== 'mapEIDs');
+        else editItemFields.value = addItemFields.value;
+
         initialValues.value = values;
 
     } catch (error) {
@@ -209,6 +234,7 @@ async function editItemSave(values) {
     );
     payload.userUIDs = payload.userUIDs.map(item => item.UID);
     payload.mapEIDs = payload.mapEIDs.map(item => item.EID);
+    console.log("🚀 ~ editItemSave ~ payload:", payload)
 
     try {
         await api.put(mainPath + '/' + values.originalObject[mainKey], payload);

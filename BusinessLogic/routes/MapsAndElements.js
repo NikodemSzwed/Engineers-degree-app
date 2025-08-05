@@ -160,10 +160,6 @@ router.put('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
     try {
-        if (req.body.ETID == 1 && !req.decodedToken.admin) {
-            throw new Error('You are not allowed to delete maps');
-        }
-
         let allowedMaps = getAllowedMaps(req.cookies['WarehouseLogisticsToken']);
         let EIDs = [req.params.id];
         const query = `
@@ -186,6 +182,13 @@ router.delete('/:id', async (req, res) => {
 
         if (allowence.length > 0) {
             return res.status(403).json({ error: 'You are not allowed to delete some or all of those elements' });
+        }
+
+        let element = await MapsAndElements.findByPk(req.params.id);
+        if (!element) {
+            return res.status(404).json({ error: 'Element not found' });
+        } else if (element.ETID == 1 && !req.decodedToken.admin) {
+            return res.status(403).json({ error: 'You are not allowed to delete maps' });
         }
 
         await MapsAndElements.destroy({

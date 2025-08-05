@@ -1,77 +1,25 @@
 <template>
-    <div class="flex flex-1 flex-col gap-3">
-        <!-- <div class="flex flex-row gap-3">
-            <Button @click="currentMode = 'view'">View</Button>
-            <Button @click="currentMode = 'draw'">Draw</Button>
-            <Button @click="currentMode = 'modify'">Edit</Button>
-            <Button @click="currentMode = 'modifyPolygon'">Edit Polygon</Button>
-            <Button @click="currentMode = 'select'">Select</Button>
-            <Button @click="fitMapToContainer">Reset</Button>
-            <ToggleButton v-model="enableSnap" onLabel="Snap On" offLabel="Snap Off" />
-            <ToggleButton v-model="enableSimplifyGeometry" onLabel="Simplify Geometry On"
-                offLabel="Simplify Geometry Off" />
-            <ToggleButton v-model="enableZones" onLabel="Zones On" offLabel="Zones Off" />
-            <Button @click="setSelectedShapeToRectangle">Reset Rect</Button>
-        </div> -->
-
-        <Card class="w-full flex flex-1" :pt="{ content: 'flex flex-1', body: 'flex flex-1 p-2' }">
-            <template #content>
-                <div ref="mapContainer" class="w-full flex flex-1"></div>
-            </template>
-        </Card>
-
-
-        <!-- <img src="@/assets/vue.svg">
-
-        </img> -->
-        <!-- <div id="sector-icon" style="position: absolute;">
-            <Card>
-                <template #content>
-                    <i class="pi pi-cog"></i>
-                </template>
-            </Card>
-
-        </div> -->
-        <!-- <div class="flex flex-row gap-3">
-            <div v-for="color in tempColors" class="h-7 w-7 rounded-md" :style="{ backgroundColor: color }"></div>
-        </div> -->
-    </div>
-
+    <div ref="mapContainer" class="w-full flex flex-1"></div>
 </template>
 
 <script setup>
-import { ref, watch, onMounted, nextTick, computed } from 'vue';
+import { ref, watch, onMounted, computed } from 'vue';
 import olMap from 'ol/Map';
 import View from 'ol/View';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
-import { Draw, Modify, Select, Snap, Translate } from 'ol/interaction';
-// import { defaults as defaultInteractions } from 'ol/interaction';
+import { Draw, Modify, Select, Snap } from 'ol/interaction';
 import { Style, Stroke, Fill, Text, Icon } from 'ol/style';
 import { createBox } from 'ol/interaction/Draw';
 import Feature from 'ol/Feature';
-import { Polygon, LineString, Point, LinearRing, GeometryCollection, MultiLineString, MultiPoint, MultiPolygon } from 'ol/geom';
-import { Button, Card, ToggleButton } from 'primevue';
-// import { primaryAction } from 'ol/events/condition';
-// import DragPan from 'ol/interaction/DragPan';
-// import TileLayer from 'ol/layer/Tile';
-// import { TileDebug } from 'ol/source';
-// import TileImage from 'ol/source/TileImage';
-// import { containsExtent } from 'ol/extent';
+import { Polygon, Point } from 'ol/geom';
 import Transform from 'ol-ext/interaction/Transform';
-// import { rotate } from 'ol/transform';
 // import { GeoJSON } from 'ol/format';
 // import * as jsts from 'jsts/dist/jsts.min.js';
-// import { fromExtent } from 'ol/geom/Polygon';
 import { useUserStore } from '../../stores/userData';
-// import Overlay from 'ol/Overlay';
-import { hexToRgbaString, rgbToHexString, blendColors, generateComplementaryColors } from '../../services/themeChanger';
+import { hexToRgbaString, blendColors, generateComplementaryColors } from '../../services/themeChanger';
 import { fitMapToContainer, setShapeToRectangle, toggleLayerVisibility, simplifyPolygon, setShapePointsToClosestExtentBorder, snapFeature, getPointerDeltaFunction, generateResolutions } from './mapUtils';
 import Collection from 'ol/Collection';
-import { all } from 'ol/events/condition';
-// import Icon from 'ol/style/Icon';
-
-
 
 const userData = useUserStore();
 
@@ -111,6 +59,10 @@ const props = defineProps({
     search: {
         type: String,
         default: null
+    },
+    data: {
+        type: Object,
+        default: () => ({ physical: [], zones: [], alerts: [] })
     }
 });
 
@@ -193,7 +145,6 @@ const highlightStyle = new Style({
     }),
 })
 
-
 const mainStyle = new Style({
     stroke: new Stroke({
         color: primaryHex,
@@ -231,51 +182,6 @@ onMounted(() => {
 
     generateLayers(map, props.layers);
 
-
-    let size = 250;
-    const corners = [
-        [0, 0],
-        [width - size, 0],
-        [width - size, height - size],
-        [0, height - size],
-    ];
-    let a = 0;
-    const rectangles = corners.map(([x, y]) => {
-        let f = new Feature(
-            new Polygon([[
-                [x, y],
-                [x + size, y],
-                [x + size, y + size],
-                [x, y + size],
-                [x, y],
-            ]])
-        )
-        f.customData = {
-            name: 'A' + a,
-            id: a
-        }
-        a++;
-
-        return f;
-    }
-    );
-    rectangles.push(new Feature(
-        new Polygon([[
-            [width / 2, height / 2],
-            [width / 2 - 100, height / 2],
-            [width / 2 - 100, height / 2 - 100],
-            [width / 2, height / 2 - 100],
-            [width / 2, height / 2]
-        ]])
-    ));
-    rectangles[rectangles.length - 1].customData = {
-        name: 'B',
-        id: a++
-    }
-    // updateSectorIconPosition(rectangles[0]);
-    allLayers.get('physical')[0].getSource().addFeatures(rectangles);
-
-
     const backgroundRectangle = new Feature(
         new Polygon([[
             [0, 0],
@@ -290,25 +196,42 @@ onMounted(() => {
     }
 
     allLayers.get('background')[0].getSource().addFeature(backgroundRectangle);
-    const zone1 = new Feature(
-        new Polygon([[
-            [200, 200],
-            [width - 500, 200],
-            [width - 500, height - 500],
-            [200, height - 500],
-            [200, 200],
-        ]])
-    )
-    zone1.customData = {
-        name: 'zone1',
-        id: a++
-    }
-    allLayers.get('zones')[0].getSource().addFeature(zone1);
 
-    updateAlertPoints(map, [0]);
-    blinkFeature(rectangles[0], 500, 20);
+    const sectors = props.data.physical.map((item) => {
+        let f = new Feature(
+            new Polygon(JSON.parse(item.DimensionsAndStructure_json))
+        )
+        f.customData = {
+            ...item,
+        }
+        return f;
+    })
+    allLayers.get('physical')[0].getSource().addFeatures(sectors);
 
+    const zones = props.data.zones.map((item) => {
+        let f = new Feature(
+            new Polygon(item.coords)
+        )
+        f.customData = {
+            ...item,
+        }
+        return f;
+    })
+    console.log("🚀 ~ zones:", zones)
+
+    allLayers.get('zones')[0].getSource().addFeatures(zones);
+    updateAlertPoints();
     fitMapToContainer(map);
+    changeMode(currentMode.value);
+
+
+    allLayers.get('physical')[0].getSource().getFeatures().forEach((feature) => {
+        const alerts = feature?.customData?.alerts;
+
+        if (!alerts || alerts.length === 0) return;
+
+        blinkFeature(feature, 500, 20);
+    })
 });
 
 watch(currentMode, (mode) => {
@@ -350,6 +273,7 @@ function changeMode(mode) {
         interactions.get('transform').setActive(true);
 
     } else if (mode === 'view') {
+        updateAlertPoints();
         toggleLayerVisibility(allLayers.get('alerts')[0], true);
         interactions.get('select').setActive(true);
     }
@@ -371,6 +295,12 @@ watch(localVisibleLayers, (visible) => {
 
         if (visible.some((visl) => visl.value === layer.value)) toggleLayerVisibility(l, true);
         else toggleLayerVisibility(l, false);
+
+        if (!visible.some((visl) => visl.value === 'physical')) {
+            toggleLayerVisibility(allLayers.get('alerts')[0], false);
+        } else {
+            toggleLayerVisibility(allLayers.get('alerts')[0], true);
+        }
     })
 })
 
@@ -378,8 +308,17 @@ watch(localSearchName, (search) => {
     const lowerSearch = search?.toLowerCase();
 
     allLayers.get('physical')[0].getSource().getFeatures().forEach((feature) => {
+
         const name = feature.customData?.name?.toLowerCase() || '';
-        const isMatch = lowerSearch && name.includes(lowerSearch);
+        let isMatch = lowerSearch && name.includes(lowerSearch);
+
+        const orders = feature.customData?.orders;
+
+        if (!isMatch && orders) {
+            isMatch = orders.some((order) => {
+                return lowerSearch && order.name.toLowerCase().includes(lowerSearch);
+            })
+        }
 
         if (isMatch) {
             let style = highlightStyle.clone();
@@ -460,7 +399,9 @@ function newDrawInteraction(map, layer, selectInteraction) {
         selectInteraction.getFeatures().clear();
         selectInteraction.getFeatures().push(e.feature);
         e.feature.customData = {
-            name: ''
+            name: '',
+            alerts: [],
+            orders: []
         }
         selected.value = e.feature;
     });
@@ -549,7 +490,6 @@ function newTransformInteraction(map, editLayer) {
             selected.value?.changed();
             selected.value = null;
             originalGeom = null;
-            updateAlertPoints(map, [0]);
         }
     });
 
@@ -575,21 +515,52 @@ function newTransformInteraction(map, editLayer) {
                 });
             }
 
+            // reseting geometry isin't as smooth as changing dx and dy
+            const currentPointerCoord = map.getCoordinateFromPixel(e.pixel);
 
+            const outsideTop = currentPointerCoord[1] > mapExtent[3];
+            const outsideBottom = currentPointerCoord[1] < mapExtent[1];
+            const outsideLeft = currentPointerCoord[0] < mapExtent[0];
+            const outsideRight = currentPointerCoord[0] > mapExtent[2];
 
-            const isInside =
-                extent[0] >= mapExtent[0] &&
-                extent[1] >= mapExtent[1] &&
-                extent[2] <= mapExtent[2] &&
-                extent[3] <= mapExtent[3];
-
-            if (!isInside && originalGeom) {
-                feature.setGeometry(originalGeom.clone());
+            if (outsideLeft) {
+                dx = mapExtent[0] - extent[0];
+            } else if (outsideRight) {
+                dx = mapExtent[2] - extent[2];
             } else {
-                if (dx !== 0 || dy !== 0) {
-                    geometry.translate(dx, dy);
+                if (extent[0] < mapExtent[0]) {
+                    dx = mapExtent[0] - extent[0];
+                } else if (extent[2] > mapExtent[2]) {
+                    dx = mapExtent[2] - extent[2];
                 }
-                originalGeom = geometry.clone();
+            }
+
+            if (outsideBottom) {
+                dy = mapExtent[1] - extent[1];
+            } else if (outsideTop) {
+                dy = mapExtent[3] - extent[3];
+            } else {
+                if (extent[1] < mapExtent[1]) {
+                    dy = mapExtent[1] - extent[1];
+                } else if (extent[3] > mapExtent[3]) {
+                    dy = mapExtent[3] - extent[3];
+                }
+            }
+
+            // const isInside =
+            //     extent[0] >= mapExtent[0] &&
+            //     extent[1] >= mapExtent[1] &&
+            //     extent[2] <= mapExtent[2] &&
+            //     extent[3] <= mapExtent[3];
+
+            // if (!isInside && originalGeom) {
+            //     feature.setGeometry(originalGeom.clone());
+            // } else {
+            //     originalGeom = geometry.clone();
+            // }
+
+            if (dx !== 0 || dy !== 0) {
+                geometry.translate(dx, dy);
             }
         });
     });
@@ -683,7 +654,6 @@ function createColoredSvg(color) {
 }
 
 function blinkFeature(feature, interval = 300, times = 6, revertStyle = true) {
-    const originalStyle = feature.getStyle();
     const redStyle = mainStyle.clone();
     redStyle.getStroke().setColor('#ff0000');
     redStyle.getFill().setColor('#550000');
@@ -696,11 +666,11 @@ function blinkFeature(feature, interval = 300, times = 6, revertStyle = true) {
     let count = 0;
     const blinkInterval = setInterval(() => {
         const useRed = count % 2 === 0;
-        feature.setStyle(useRed ? redStyle : originalStyle);
+        feature.setStyle(useRed ? redStyle : null);
         count++;
-        if (count >= times || currentMode.value !== 'view') {
+        if (count >= times || currentMode.value !== 'view' || selected.value?.ol_uid == feature.ol_uid) {
             clearInterval(blinkInterval);
-            if (revertStyle) feature.setStyle(originalStyle);
+            if (revertStyle) feature.setStyle(null);
         }
     }, interval);
 }
@@ -802,7 +772,7 @@ function generateLayers(map, layers) {
     const alertSource = new VectorSource();
     const alertLayer = new VectorLayer({
         source: alertSource,
-        style: LODcontrol(map, mainStyle, { minZoom: 1, maxZoom: 7, color: '#ff0000', font: 'bold 14px sans-serif', image: createColoredSvg('#ff0000'), offsetX: 15, overrideBlendColor: true }),
+        style: LODcontrol(map, mainStyle, { minZoom: 1.5, maxZoom: 7, color: '#ff0000', font: 'bold 14px sans-serif', image: createColoredSvg('#ff0000'), offsetX: 15, overrideBlendColor: true }),
     });
     allLayers.set('alerts', [alertLayer, new Map()]);
     map.addLayer(alertLayer);
@@ -853,13 +823,13 @@ function generateLayers(map, layers) {
     }
 }
 
-function updateAlertPoints(map, alertedIds) {
+function updateAlertPoints() {
     allLayers.get('alerts')[0].getSource().clear();
 
     allLayers.get('physical')[0].getSource().getFeatures().forEach((feature) => {
-        const id = feature?.customData?.id;
+        const alerts = feature?.customData?.alerts;
 
-        if (!alertedIds.includes(id)) return;
+        if (!alerts || alerts.length === 0) return;
 
         const extent = feature.getGeometry().getExtent();
         const topCenter = [((extent[0] + extent[2]) / 2), extent[3] + 20];
@@ -868,9 +838,8 @@ function updateAlertPoints(map, alertedIds) {
             geometry: new Point(topCenter),
         });
         alertFeature.customData = {
-            name: 3,
+            name: alerts.length > 3 ? '3+' : alerts.length,
         }
-        console.log("🚀 ~ updateAlertPoints ~ alertFeature:", alertFeature)
 
         allLayers.get('alerts')[0].getSource().addFeature(alertFeature);
     });
@@ -955,14 +924,6 @@ function updateAlertPoints(map, alertedIds) {
 </script>
 
 <style>
-/* .ol-zoom {
-    top: 1rem;
-    left: 1rem;
-    background-color: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-} */
-
 .ol-zoom-in,
 .ol-zoom-out {
     font-size: 18px;
@@ -973,12 +934,6 @@ function updateAlertPoints(map, alertedIds) {
     margin-right: 0.25rem;
     cursor: pointer;
 }
-
-/* .ol-rotate {
-    top: 5rem;
-    left: 1rem;
-
-} */
 
 .ol-rotate button {
     font-size: 32px;
