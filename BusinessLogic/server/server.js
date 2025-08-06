@@ -60,6 +60,8 @@ io.on('connection', socket => {
     socket.on('join-all', async () => {
         const allowedEIDs = socket.userToken.userEIDs;
 
+        if (!allowedEIDs) return;
+
         allowedEIDs.forEach(EID => {
             if (!socket.rooms.has('EID-' + EID)) {
                 socket.join('EID-' + EID);

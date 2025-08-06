@@ -16,7 +16,7 @@
                         'h-[43.5vh]': items.length > 2,
                         'h-[88vh]': items.length <= 2
                     }" v-for="item in items" @click="selectObject(item)"
-                        :pt="{ content: 'overflow-hidden', body: 'overflow-hidden' }">
+                        :pt="{ content: 'overflow-hidden h-full', body: 'overflow-hidden h-full' }">
                         <template #title>
                             <div class="w-full flex flex-row justify-between">
                                 <div>
@@ -46,10 +46,11 @@
                         </template>
                         <template #content>
                             <div class="h-full overflow-y-auto">
-                                <div v-if="item.ETID == 1">
-                                    <div class="w-full h-full flex min-h-[75vh]">
-                                        <MapInterface class="flex-1"></MapInterface>
-                                    </div>
+                                <div v-if="item.ETID == 1" class="w-full h-full flex min-h-[75vh]">
+
+                                    <MapInterface class="flex-1" :data="item.data.mapData" @click.stop="">
+                                    </MapInterface>
+
                                 </div>
                                 <div v-else-if="item.ETID == 2">
                                     <div class="flex flex-col gap-1">
@@ -140,10 +141,10 @@
         </template>
         <template #default>
             <div class="h-full overflow-y-auto">
-                <div v-if="showItem.ETID == 1">
-                    <div class="w-full h-full flex">
-                        <MapInterface></MapInterface>
-                    </div>
+                <div v-if="showItem.ETID == 1" class="w-full h-full flex  min-h-[75vh]">
+
+                    <MapInterface class="flex-1" :data="showItem.data.mapData"></MapInterface>
+
                 </div>
                 <div v-else-if="showItem.ETID == 2">
                     <div class="flex flex-col gap-1">
@@ -550,8 +551,8 @@ async function getData() {
             if (element.ETID == 1) {
                 let sectors = data.MapsAndElements.filter(el => el.ParentEID == element.EID);
                 let orders = data.MapsAndElements.filter(el => sectors.some(sector => sector.EID === el.ParentEID));
-                let allEIDs = [...sectors.map(el => el.EID), ...orders.map(el => el.EID), element.EID];
-                sectors.forEach(sector => {
+                let all = [...sectors, ...orders, element];
+                all.forEach(element => {
                     socket.emit('join', 'EID-' + element.EID);
                 });
                 return {
@@ -560,6 +561,7 @@ async function getData() {
                     EID: element.EID,
                     data: {
                         ...element,
+                        mapData: all,
                         newAlertPresent: element.alerts.find(el => el.State == 0) ? true : false
                     }
                 }

@@ -80,7 +80,8 @@ async function saveTheme() {
 
 function loadTheme() {
     const userData = useUserStore();
-    changePrimaryColorToCustom(userData.personalSettings.primaryColor);
+    if (userData.personalSettings.primaryColor) changePrimaryColorToCustom(userData.personalSettings.primaryColor);
+    else changePrimaryColor();
     toggleDarkMode(userData.personalSettings.darkMode);
 }
 

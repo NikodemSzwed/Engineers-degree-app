@@ -100,7 +100,6 @@ onMounted(async () => {
             item.date = new Date(item.date);
             return item;
         });
-        console.log("🚀 ~ onMounted ~ items.value:", items.value)
 
     } catch (error) {
         console.log("🚀 ~ onMounted ~ error:", error);

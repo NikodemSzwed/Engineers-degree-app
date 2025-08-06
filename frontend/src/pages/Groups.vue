@@ -61,6 +61,7 @@ const advancedObjectViewVisible = ref(false);
 const showItem = ref({});
 const fieldMap = ref({
     name: { label: 'Nazwa grupy' },
+    allowMapEdit: { label: 'Zezwól na edycję przypisanych map' },
     Users: { label: 'Członkowie grupy' },
     MapsAndElements: { label: 'Dostęp do map' }
 });
@@ -145,6 +146,7 @@ const editItemFields = ref(addItemFields.value);
 const columns = ref([
     { label: 'GID', field: 'GID', type: 'numeric', dataKey: true, show: false },
     { label: 'Nazwa', field: 'name', type: 'text', addToGlobalFilter: true },
+    { label: 'Zezwól na edycję przypisanych map', field: 'allowMapEdit', type: 'text' },
 ])
 
 const loading = ref(true);
@@ -167,6 +169,7 @@ onMounted(async () => {
         });
 
         items.value = (await groups).data;
+        console.log("🚀 ~ items.value:", items.value)
     } catch (error) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych.'));
     }

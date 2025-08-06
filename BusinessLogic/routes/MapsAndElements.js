@@ -121,7 +121,7 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
     try {
-        let allowedMaps = getAllowedMaps(req.cookies['WarehouseLogisticsToken']);
+        let UID = req.decodedToken.UID;
         let EIDs = [req.params.id];
         const query = `
             WITH RECURSIVE MapElements AS (
@@ -130,12 +130,19 @@ router.put('/:id', async (req, res) => {
                 SELECT me.* FROM MapsAndElements me
                 INNER JOIN MapElements ON me.EID = MapElements.ParentEID
             )
-            SELECT EID FROM MapElements
-            WHERE ETID = 1 AND EID NOT IN (:maps);
+            SELECT EID,allowed FROM MapElements m
+            LEFT JOIN (SELECT distinct EID, true as allowed FROM MapElements m2
+                    JOIN MapsToGroupAssignment USING(EID)
+                    JOIN Groups g USING(GID)
+                    JOIN Membership USING(GID)
+                    JOIN Users USING(UID)
+                    WHERE UID = :UID AND ETID = 1 AND allowMapEdit = true
+            ) as a USING(EID)
+            WHERE ETID = 1 AND allowed IS NULL
         `;
 
         const rawData = await db.query(query, {
-            replacements: { EIDs: EIDs, maps: allowedMaps },
+            replacements: { EIDs: EIDs, UID: UID },
             type: db.QueryTypes.SELECT,
         });
 

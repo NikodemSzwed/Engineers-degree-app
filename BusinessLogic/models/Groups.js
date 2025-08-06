@@ -13,6 +13,11 @@ module.exports = function (sequelize, DataTypes) {
                 type: DataTypes.TEXT,
                 allowNull: false,
             },
+            allowMapEdit: {
+                type: DataTypes.BOOLEAN,
+                allowNull: false,
+                defaultValue: 0,
+            },
         },
         {
             sequelize,

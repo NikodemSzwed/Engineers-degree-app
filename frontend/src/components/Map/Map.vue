@@ -71,7 +71,9 @@ const emit = defineEmits(['update:mode', 'update:enableSnap', 'update:enableSimp
 defineExpose({
     setSelectedShapeToRectangle,
     deleteSelectedShape,
-    setSelectedShapePointsToClosestExtentBorder
+    setSelectedShapePointsToClosestExtentBorder,
+    getAllFeatures,
+    copySelectedShape
 });
 
 const currentMode = computed({
@@ -114,6 +116,10 @@ const currentEditLayer = computed({
     get: () => props.editLayer,
     set: () => { }
 })
+const data = computed({
+    get: () => props.data,
+    set: () => { }
+})
 
 const getPointerDelta = getPointerDeltaFunction();
 const mapContainer = ref(null);
@@ -124,6 +130,7 @@ let layerMap = new Map();
 //interaction helpers
 const snapTolerance = 10;
 let originalGeom = null;
+const deletedFeatures = [];
 
 const primaryHex = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim();
 let tempColors = generateComplementaryColors(primaryHex, 20);
@@ -181,49 +188,7 @@ onMounted(() => {
     });
 
     generateLayers(map, props.layers);
-
-    const backgroundRectangle = new Feature(
-        new Polygon([[
-            [0, 0],
-            [width, 0],
-            [width, height],
-            [0, height],
-            [0, 0],
-        ]])
-    )
-    backgroundRectangle.customData = {
-        name: props.name
-    }
-
-    allLayers.get('background')[0].getSource().addFeature(backgroundRectangle);
-
-    const sectors = props.data.physical.map((item) => {
-        let f = new Feature(
-            new Polygon(JSON.parse(item.DimensionsAndStructure_json))
-        )
-        f.customData = {
-            ...item,
-        }
-        return f;
-    })
-    allLayers.get('physical')[0].getSource().addFeatures(sectors);
-
-    const zones = props.data.zones.map((item) => {
-        let f = new Feature(
-            new Polygon(item.coords)
-        )
-        f.customData = {
-            ...item,
-        }
-        return f;
-    })
-    console.log("🚀 ~ zones:", zones)
-
-    allLayers.get('zones')[0].getSource().addFeatures(zones);
-    updateAlertPoints();
-    fitMapToContainer(map);
-    changeMode(currentMode.value);
-
+    generateFeatures(map, props.data);
 
     allLayers.get('physical')[0].getSource().getFeatures().forEach((feature) => {
         const alerts = feature?.customData?.alerts;
@@ -232,7 +197,15 @@ onMounted(() => {
 
         blinkFeature(feature, 500, 20);
     })
+
+    fitMapToContainer(map);
+    changeMode(currentMode.value);
+
 });
+
+watch(data, (data) => {
+    generateFeatures(map, data);
+})
 
 watch(currentMode, (mode) => {
     changeMode(mode);
@@ -351,11 +324,78 @@ function setSelectedShapePointsToClosestExtentBorder() {
 }
 
 function deleteSelectedShape() {
+    deletedFeatures.push(selected.value);
     allLayers.forEach((layer) => {
         layer[0].getSource().removeFeature(selected.value);
         allLayers.get(props.editLayer.value)[1].get('transform').setSelection(new Collection());
-        selected.value = null;
     })
+    selected.value = null;
+}
+
+function copySelectedShape() {
+    if (selected.value) {
+        const newFeature = selected.value.clone();
+        newFeature.customData = {
+            name: 'Kopia ' + selected.value.customData.name,
+            parentEID: selected.value.customData.parentEID,
+            ETID: selected.value.customData.ETID,
+            EID: null,
+            orders: [],
+            alerts: [],
+        }
+        allLayers.get(props.editLayer.value)[0].getSource().addFeature(newFeature);
+    }
+}
+
+function generateFeatures(map, data) {
+    const mapExtent = map.getView().get('extent')
+
+    const backgroundRectangle = new Feature(
+        new Polygon([[
+            [0, 0],
+            [mapExtent[2], 0],
+            [mapExtent[2], mapExtent[3]],
+            [0, mapExtent[3]],
+            [0, 0],
+        ]])
+    )
+    backgroundRectangle.customData = {
+        name: props.name || '',
+    }
+
+    allLayers.get('background')[0].getSource().clear();
+    allLayers.get('background')[0].getSource().addFeature(backgroundRectangle);
+
+    const sectors = data?.physical?.map((item) => {
+        let dimensions =
+            item?.DimensionsAndStructure_json === '{}' ?
+                [[[0, 0], [100, 0], [100, 100], [0, 100], [0, 0]]] :
+                JSON.parse(item.DimensionsAndStructure_json);
+
+        let f = new Feature(
+            new Polygon(dimensions)
+        )
+        f.customData = {
+            ...item,
+        }
+        return f;
+    })
+
+    allLayers.get('physical')[0].getSource().clear();
+    if (sectors) allLayers.get('physical')[0].getSource().addFeatures(sectors);
+
+    const zones = data?.zones?.map((item) => {
+        let f = new Feature(
+            new Polygon(item?.coords)
+        )
+        f.customData = {
+            ...item,
+        }
+        return f;
+    })
+    allLayers.get('zones')[0].getSource().clear();
+    if (zones) allLayers.get('zones')[0].getSource().addFeatures(zones);
+    updateAlertPoints();
 }
 
 function newDrawInteraction(map, layer, selectInteraction) {
@@ -399,6 +439,7 @@ function newDrawInteraction(map, layer, selectInteraction) {
         selectInteraction.getFeatures().clear();
         selectInteraction.getFeatures().push(e.feature);
         e.feature.customData = {
+            EID: null,
             name: '',
             alerts: [],
             orders: []
@@ -416,6 +457,9 @@ function newSelectInteraction(map, layer) {
     })
     newSelectInteraction.on('select', (e) => {
         selected.value = e.selected[0];
+        const deselected = e.deselected;
+
+        deselected.forEach((feature) => feature.setStyle(null));
     });
     newSelectInteraction.setActive(false);
     return newSelectInteraction;
@@ -504,7 +548,70 @@ function newTransformInteraction(map, editLayer) {
             let dy = 0;
 
             if (enableSnap.value) {
-                featuresToSnap.forEach((otherFeature) => {
+
+                function getBorder(point, extent) {
+                    const [minX, minY, maxX, maxY] = extent;
+                    const [x, y] = point;
+
+                    const distLeft = Math.abs(x - minX);
+                    const distRight = Math.abs(x - maxX);
+                    const distTop = Math.abs(y - maxY);
+                    const distBottom = Math.abs(y - minY);
+
+                    const min = Math.min(distLeft, distRight, distTop, distBottom);
+
+                    if (min === distLeft) return 'left';
+                    if (min === distRight) return 'right';
+                    if (min === distTop) return 'top';
+                    return 'bottom';
+                }
+
+                const geometry = feature.getGeometry();
+                const extent = geometry.getExtent();
+
+                const borderClosest = {
+                    top: null,
+                    right: null,
+                    bottom: null,
+                    left: null
+                };
+
+                const borderDistances = {
+                    top: Infinity,
+                    right: Infinity,
+                    bottom: Infinity,
+                    left: Infinity
+                };
+
+                featuresToSnap
+                    .filter(f => f !== feature)
+                    .forEach(f => {
+                        const otherGeom = f.getGeometry();
+
+                        const closestOnOtherToSelf = otherGeom.getClosestPoint(geometry.getFirstCoordinate());
+                        const closestOnSelf = geometry.getClosestPoint(closestOnOtherToSelf);
+                        const closestOnOther = otherGeom.getClosestPoint(closestOnSelf);
+
+                        const dx = closestOnSelf[0] - closestOnOther[0];
+                        const dy = closestOnSelf[1] - closestOnOther[1];
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+
+                        const border = getBorder(closestOnSelf, extent);
+
+                        if (distance < borderDistances[border]) {
+                            borderDistances[border] = distance;
+                            borderClosest[border] = f;
+                        }
+                    });
+
+                const closestPerBorder = [
+                    borderClosest.top,
+                    borderClosest.right,
+                    borderClosest.bottom,
+                    borderClosest.left
+                ].filter(border => border !== null && border !== undefined);
+
+                closestPerBorder.forEach((otherFeature) => {
 
                     let { snapFound, snapDx, snapDy } = snapFeature(feature, otherFeature, getPointerDelta(map, e), snapTolerance);
 
@@ -515,7 +622,7 @@ function newTransformInteraction(map, editLayer) {
                 });
             }
 
-            // reseting geometry isin't as smooth as changing dx and dy
+            // reseting geometry isn't as smooth as changing dx and dy
             const currentPointerCoord = map.getCoordinateFromPixel(e.pixel);
 
             const outsideTop = currentPointerCoord[1] > mapExtent[3];
@@ -547,6 +654,10 @@ function newTransformInteraction(map, editLayer) {
                 }
             }
 
+            if (dx !== 0 || dy !== 0) {
+                geometry.translate(dx, dy);
+            }
+
             // const isInside =
             //     extent[0] >= mapExtent[0] &&
             //     extent[1] >= mapExtent[1] &&
@@ -557,11 +668,12 @@ function newTransformInteraction(map, editLayer) {
             //     feature.setGeometry(originalGeom.clone());
             // } else {
             //     originalGeom = geometry.clone();
+            //     if (dx !== 0 || dy !== 0) {
+            //         geometry.translate(dx, dy);
+            //     }
             // }
 
-            if (dx !== 0 || dy !== 0) {
-                geometry.translate(dx, dy);
-            }
+
         });
     });
 
@@ -670,7 +782,10 @@ function blinkFeature(feature, interval = 300, times = 6, revertStyle = true) {
         count++;
         if (count >= times || currentMode.value !== 'view' || selected.value?.ol_uid == feature.ol_uid) {
             clearInterval(blinkInterval);
-            if (revertStyle) feature.setStyle(null);
+            if (revertStyle) {
+                feature.setStyle(null);
+                console.log("🚀 ~ blinkFeature ~ feature:", feature)
+            }
         }
     }, interval);
 }
@@ -843,6 +958,17 @@ function updateAlertPoints() {
 
         allLayers.get('alerts')[0].getSource().addFeature(alertFeature);
     });
+}
+
+function getAllFeatures() {
+    const features = {};
+    allLayers.forEach((layer, key) => {
+        features[key] = [];
+        layer[0].getSource().getFeatures().forEach((feature) => {
+            features[key].push(feature);
+        })
+    })
+    return { features, deletedFeatures };
 }
 
 // const parser = new jsts.io.OL3Parser();

@@ -1,3 +1,4 @@
+import { set } from 'date-fns';
 import { defineStore } from 'pinia';
 
 export const useHistory = defineStore('history', {
@@ -14,6 +15,9 @@ export const useHistory = defineStore('history', {
                 this.list.unshift(path);
                 if (this.list.length > 5) this.list.pop();
             }
+        },
+        set(list) {
+            this.list = list;
         },
         clear() {
             this.list = [];

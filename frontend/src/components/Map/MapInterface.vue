@@ -1,13 +1,22 @@
 <template>
     <div class="flex flex-1 flex-col xl:flex-row gap-1 xl:gap-3">
         <div class="flex-3 flex flex-col gap-1 lg:gap-3">
-            <Card :pt="{ body: 'p-1 lg:p-5' }">
+            <Card :pt="{ body: 'p-1 lg:p-5' }" v-if="upperBarVisible">
                 <template #content>
                     <div class="flex flex-row justify-between">
-                        <div class="flex items-center justify-center" :class="{ 'w-full': editAvailable }">
-                            <span class="font-bold text-lg">Mapa: {{ name }}</span>
+                        <div class="flex items-center justify-center" :class="{ 'w-full': advancedViewAvailable }">
+                            <span v-if="!editAvailable || mode.value == 'view'" class="font-bold text-lg">Mapa: {{ name
+                            }}</span>
+                            <div v-if="editAvailable && mode.value != 'view'"
+                                class="w-full flex justify-between items-center">
+                                <FloatLabel variant="on">
+                                    <InputText v-model="name" id="on_label_name_edit" class="min-w-50"></InputText>
+                                    <label :for="'on_label_name_edit'">Nazwa mapy</label>
+                                </FloatLabel>
+                                <Button @click="save">Zapisz</Button>
+                            </div>
                         </div>
-                        <FloatLabel variant="on" v-if="!editAvailable">
+                        <FloatLabel variant="on" v-if="!advancedViewAvailable">
                             <MultiSelect :options="layers" v-model="choosenViewLayers" id="on_label_layers"
                                 option-label="name" class="min-w-50"></MultiSelect>
                             <label :for="'on_label_layers'">Wyświetlane warstwy</label>
@@ -26,7 +35,7 @@
             </Card>
         </div>
 
-        <Card class="flex-1" v-if="editAvailable" :pt="{ body: 'flex flex-1', content: 'flex flex-1' }">
+        <Card class="flex-1" v-if="advancedViewAvailable" :pt="{ body: 'flex flex-1', content: 'flex flex-1' }">
             <template #content>
                 <div class="flex flex-1 flex-col">
                     <div class="flex flex-col gap-3">
@@ -35,7 +44,7 @@
                                 option-label="name"></MultiSelect>
                             <label :for="'on_label_layers'">Wyświetlane warstwy</label>
                         </FloatLabel>
-                        <FloatLabel variant="on">
+                        <FloatLabel variant="on" v-if="editAvailable">
                             <Select fluid :options="modes" v-model="mode" id="on_label_mode"
                                 option-label="name"></Select>
                             <label :for="'on_label_mode'">Tryb</label>
@@ -67,6 +76,10 @@
                         <div v-if="mode.value == 'modifyPolygon'" class="flex flex-row justify-between">
                             <Button fluid @click="setSelectedShapePointsToClosestExtentBorder">Przyciągnij punkty do
                                 krawędzi</Button>
+                        </div>
+                        <div v-if="mode.value == 'modifyPolygon' || mode.value == 'modify'"
+                            class="flex flex-row justify-between">
+                            <Button fluid @click="copySelectedShape">Skopiuj element</Button>
                         </div>
                     </div>
 
@@ -129,10 +142,27 @@ const props = defineProps({
     editAvailable: {
         type: Boolean,
         default: false
+    },
+    advancedViewAvailable: {
+        type: Boolean,
+        default: false
+    },
+    upperBarVisible: {
+        type: Boolean,
+        default: false
+    },
+    data: {
+        type: Array,
+        default: []
     }
 });
 
+const emit = defineEmits(['save']);
+
 const editAvailable = computed(() => props.editAvailable);
+const advancedViewAvailable = computed(() => props.advancedViewAvailable);
+const upperBarVisible = computed(() => props.upperBarVisible);
+const sourceData = computed(() => props.data);
 
 const map = ref();
 const child1ManualHeightControl = ref();
@@ -141,7 +171,7 @@ const parentManualHeightControl = ref();
 const parentHeight = ref(0);
 const calculatingParentHeight = ref(true);
 
-const name = ref('Hala 9');
+const name = ref();
 
 const selected = ref(null);
 const showSelected = ref(null);
@@ -149,7 +179,7 @@ const search = ref(null);
 
 const dataReady = ref(false);
 
-let list;
+const data = ref({});
 
 const modes = [
     {
@@ -203,7 +233,65 @@ function deleteSelectedShape() {
     selected.value = null;
 }
 
-const data = ref({});
+function copySelectedShape() {
+    map.value?.copySelectedShape();
+}
+
+function save() {
+    const features = map.value?.getAllFeatures();
+
+    const operationData = {
+        add: [],
+        update: [],
+        delete: []
+    }
+
+    if (features) {
+        const mapData = sourceData.value.find((l) => l.ETID === 1);
+
+        operationData.add = features.features.physical
+            .filter((f) => f.customData.EID === null)
+            .map((f) => {
+                f.customData.ETID = 3;
+                f.customData.ParentEID = mapData.EID;
+                f.customData.DimensionsAndStructure_json = JSON.stringify(f.getGeometry().getCoordinates());
+                delete f.customData.alerts;
+                delete f.customData.orders;
+
+                return f.customData;
+            });
+        operationData.update = features.features.physical
+            .filter((f) => f.customData.EID !== null)
+            .map((f) => {
+                f.customData.DimensionsAndStructure_json = JSON.stringify(f.getGeometry().getCoordinates());
+                delete f.customData.alerts;
+                delete f.customData.orders;
+
+                return f.customData;
+            });
+        operationData.update.push({
+            EID: mapData.EID,
+            name: name.value,
+            ETID: 1,
+            DimensionsAndStructure_json: JSON.stringify(
+                {
+                    zones: features.features.zones
+                        .map((f) => {
+                            return {
+                                name: f.customData.name,
+                                coords: f.getGeometry().getCoordinates()
+                            }
+                        })
+                }
+            )
+        });
+
+        operationData.delete = features.deletedFeatures.map((f) => f.customData.EID);
+    }
+
+    emit('save', operationData);
+}
+
 
 watch(selected, (value) => {
     showSelected.value = value?.customData;
@@ -218,19 +306,24 @@ watch(child2ManualHeightControl, (value) => {
 })
 
 watch(parentManualHeightControl, (value) => {
-    settingParentHeight()
-
+    settingParentHeight();
 })
 
 onMounted(() => {
-    data.value.physical = list.filter((l) => l.ETID === 3);
+    const mapData = sourceData.value.find((l) => l.ETID === 1);
+    if (mapData) {
+        name.value = mapData.name;
+        data.value.zones = JSON.parse(mapData.DimensionsAndStructure_json).zones || [];
+    }
+
+    data.value.physical = sourceData.value.filter((l) => l.ETID === 3);
     data.value.physical.forEach((p) => {
-        p.orders = list.filter((l) => l.ETID === 2 && l.ParentEID === p.EID);
-        p.alerts = [{
-            name: 'Alert 1',
-        }];
+        p.orders = sourceData.value.filter((l) => l.ETID === 2 && l.ParentEID === p.EID);
+        p.alerts = [...(p.alerts || []), ...p.orders.map((o) => o.alerts || []).flat()];
+        console.log("🚀 ~ p.alerts:", p.alerts)
+
     })
-    data.value.zones = JSON.parse(list.find((l) => l.ETID === 1).DimensionsAndStructure_json).zones;
+
     dataReady.value = true;
 })
 
@@ -264,204 +357,4 @@ function settingParentHeight() {
         calculatingParentHeight.value = false;
     }, 100);
 }
-
-
-list = [
-    {
-        "EID": 2,
-        "ParentEID": null,
-        "ETID": 1,
-        "name": "Mapa 1",
-        "DimensionsAndStructure_json": "{\"zones\":[{\"name\":\"zone1\",\"coords\":[[[0,0],[500,0],[500,500],[0,500],[0,0]]]}]}"
-    },
-    {
-        "EID": 3,
-        "ParentEID": 2,
-        "ETID": 3,
-        "name": "Sektor 1",
-        "DimensionsAndStructure_json": "[[[500,500],[750,500],[750,750],[500,750],[500,500]]]"
-    },
-    {
-        "EID": 4,
-        "ParentEID": 2,
-        "ETID": 3,
-        "name": "Sektor 2",
-        "DimensionsAndStructure_json": "[[[500,0],[250,0],[250,250],[500,250],[500,0]]]"
-    },
-    {
-        "EID": 5,
-        "ParentEID": 2,
-        "ETID": 3,
-        "name": "Sektor 3",
-        "DimensionsAndStructure_json": "[[[0,0],[250,0],[250,250],[0,250],[0,0]]]"
-    },
-    {
-        "EID": 16,
-        "ParentEID": 3,
-        "ETID": 2,
-        "name": "Zlecenie1",
-        "DimensionsAndStructure_json": "{}"
-    },
-    {
-        "EID": 19,
-        "ParentEID": 3,
-        "ETID": 2,
-        "name": "Zlecenie2",
-        "DimensionsAndStructure_json": "{}"
-    },
-    {
-        "EID": 20,
-        "ParentEID": 3,
-        "ETID": 2,
-        "name": "Zlecenie3",
-        "DimensionsAndStructure_json": "{}"
-    },
-    {
-        "EID": 21,
-        "ParentEID": 3,
-        "ETID": 2,
-        "name": "Zlecenie4",
-        "DimensionsAndStructure_json": "{}"
-    },
-    {
-        "EID": 22,
-        "ParentEID": 3,
-        "ETID": 2,
-        "name": "Zlecenie5",
-        "DimensionsAndStructure_json": "{}"
-    },
-    {
-        "EID": 23,
-        "ParentEID": 3,
-        "ETID": 2,
-        "name": "Zlecenie6",
-        "DimensionsAndStructure_json": "{}"
-    },
-    {
-        "EID": 24,
-        "ParentEID": 3,
-        "ETID": 2,
-        "name": "Zlecenie7",
-        "DimensionsAndStructure_json": "{}"
-    },
-    {
-        "EID": 25,
-        "ParentEID": 3,
-        "ETID": 2,
-        "name": "Zlecenie8",
-        "DimensionsAndStructure_json": "{}"
-    },
-    {
-        "EID": 22,
-        "ParentEID": 3,
-        "ETID": 2,
-        "name": "Zlecenie5",
-        "DimensionsAndStructure_json": "{}"
-    },
-    {
-        "EID": 23,
-        "ParentEID": 3,
-        "ETID": 2,
-        "name": "Zlecenie6",
-        "DimensionsAndStructure_json": "{}"
-    },
-    {
-        "EID": 24,
-        "ParentEID": 3,
-        "ETID": 2,
-        "name": "Zlecenie7",
-        "DimensionsAndStructure_json": "{}"
-    },
-    {
-        "EID": 25,
-        "ParentEID": 3,
-        "ETID": 2,
-        "name": "Zlecenie8",
-        "DimensionsAndStructure_json": "{}"
-    },
-    {
-        "EID": 22,
-        "ParentEID": 3,
-        "ETID": 2,
-        "name": "Zlecenie5",
-        "DimensionsAndStructure_json": "{}"
-    },
-    {
-        "EID": 23,
-        "ParentEID": 3,
-        "ETID": 2,
-        "name": "Zlecenie6",
-        "DimensionsAndStructure_json": "{}"
-    },
-    {
-        "EID": 24,
-        "ParentEID": 3,
-        "ETID": 2,
-        "name": "Zlecenie7",
-        "DimensionsAndStructure_json": "{}"
-    },
-    {
-        "EID": 25,
-        "ParentEID": 3,
-        "ETID": 2,
-        "name": "Zlecenie8",
-        "DimensionsAndStructure_json": "{}"
-    },
-    {
-        "EID": 22,
-        "ParentEID": 3,
-        "ETID": 2,
-        "name": "Zlecenie5",
-        "DimensionsAndStructure_json": "{}"
-    },
-    {
-        "EID": 23,
-        "ParentEID": 3,
-        "ETID": 2,
-        "name": "Zlecenie6",
-        "DimensionsAndStructure_json": "{}"
-    },
-    {
-        "EID": 24,
-        "ParentEID": 3,
-        "ETID": 2,
-        "name": "Zlecenie7",
-        "DimensionsAndStructure_json": "{}"
-    },
-    {
-        "EID": 25,
-        "ParentEID": 3,
-        "ETID": 2,
-        "name": "Zlecenie8",
-        "DimensionsAndStructure_json": "{}"
-    },
-    {
-        "EID": 22,
-        "ParentEID": 3,
-        "ETID": 2,
-        "name": "Zlecenie5",
-        "DimensionsAndStructure_json": "{}"
-    },
-    {
-        "EID": 23,
-        "ParentEID": 3,
-        "ETID": 2,
-        "name": "Zlecenie6",
-        "DimensionsAndStructure_json": "{}"
-    },
-    {
-        "EID": 24,
-        "ParentEID": 3,
-        "ETID": 2,
-        "name": "Zlecenie7",
-        "DimensionsAndStructure_json": "{}"
-    },
-    {
-        "EID": 25,
-        "ParentEID": 3,
-        "ETID": 2,
-        "name": "Zlecenie8",
-        "DimensionsAndStructure_json": "{}"
-    }
-];
 </script>

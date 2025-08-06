@@ -1,5 +1,4 @@
 <template>
-
     <div>
         <Toast />
         <Card :pt="{ body: 'p-2 lg:p-5' }">
@@ -15,23 +14,20 @@
         </Dialog>
         <Dialog v-model:visible="editItemDialogVisible" header="Edytuj mapę" class="w-11/12 lg:w-3/4" modal maximizable
             :pt="{ content: 'bg-emphasis rounded-b-xl pt-5' }">
-            <!-- <Form :initial-values="initialValues" :fields="editItemFields" @submit="editItemSave" /> -->
             <div class="w-full h-full flex  min-h-[75vh]">
-                <MapInterface :editAvailable="true"></MapInterface>
+                <MapInterface :editAvailable="true" :upperBarVisible="true" :advancedViewAvailable="true"
+                    :data="initialValues" @save="editItemSave">
+                </MapInterface>
             </div>
-
         </Dialog>
         <Dialog v-model:visible="advancedObjectViewVisible" header="Podgląd mapy" class="w-11/12 lg:w-3/4" modal
             maximizable :pt="{ content: 'bg-emphasis rounded-b-xl pt-5' }">
             <div class="w-full h-full flex min-h-[75vh]">
-                <MapInterface></MapInterface>
+                <MapInterface :upperBarVisible="true" :advancedViewAvailable="true" :data="showItem">
+                </MapInterface>
             </div>
-
-            <!-- <ObjectView :item="showItem" :fieldMap="fieldMap" :complexFieldsColumns="complexFieldsColumns"></ObjectView> -->
         </Dialog>
     </div>
-
-
 </template>
 
 <script setup>
@@ -43,7 +39,6 @@ import Dialog from 'primevue/dialog';
 import DataTable from '../components/DataTable/DataTable.vue';
 import api from '../services/api';
 import Form from '../components/Form/Form.vue';
-import ObjectView from '../components/ObjectView/ObjectView.vue';
 import { toastHandler } from '../services/toastHandler';
 import MapInterface from '../components/Map/MapInterface.vue';
 
@@ -54,23 +49,8 @@ const addItemDialogVisible = ref(false);
 const editItemDialogVisible = ref(false);
 
 const advancedObjectViewVisible = ref(false);
-const showItem = ref({});
-const fieldMap = ref({
-    name: { label: 'Nazwa mapy' },
-    // Users: { label: 'Członkowie grupy' },
-    // MapsAndElements: { label: 'Dostęp do map' }
-});
-const complexFieldsColumns = ref({
-    // Users: [
-    //     { label: 'UID', field: 'UID', dataKay: true, addToGlobalFilter: true },
-    //     { label: 'Login', field: 'login', addToGlobalFilter: true },
-    //     { label: 'Email', field: 'email', addToGlobalFilter: true }
-    // ],
-    // MapsAndElements: [
-    //     { label: 'EID', field: 'EID', dataKay: true, addToGlobalFilter: true },
-    //     { label: 'Nazwa mapy', field: 'name', addToGlobalFilter: true }
-    // ]
-})
+const showItem = ref([]);
+
 const mainKey = 'EID';
 const mainPath = '/mapsandelements';
 
@@ -152,10 +132,7 @@ async function editItem(item) {
     try {
         let response = await api.get(mainPath + '/' + item[mainKey]);
 
-        let values = { ...response.data };
-
-        initialValues.value = values;
-
+        initialValues.value = response.data;
     } catch (error) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych mapy', error));
     }
@@ -165,26 +142,23 @@ async function editItem(item) {
 }
 
 async function editItemSave(values) {
-    let payload = Object.fromEntries(
-        Object.entries(values.newObject.states).map(([key, obj]) => [key, obj.value])
-    );
-    payload.userUIDs = payload.userUIDs.map(item => item.UID);
-    payload.mapEIDs = payload.mapEIDs.map(item => item.EID);
+    let addPayload = values.add;
+    let updatePayload = values.update;
+    let deletePayload = values.delete;
 
     try {
-        await api.put(mainPath + '/' + values.originalObject[mainKey], payload);
 
-        delete payload.userUIDs;
-        delete payload.mapEIDs;
+        const addPromises = addPayload.map(element => api.post(mainPath, element));
+        const updatePromises = updatePayload.map(element => api.put(mainPath + '/' + element.EID, element));
+        const deletePromises = deletePayload.map(EID => api.delete(mainPath + '/' + EID));
 
-        let index = items.value.findIndex(item => item[mainKey] === values.originalObject[mainKey]);
-        if (index === -1) throw new Error("Nie znaleziono użytkownika lokalnie.");
+        await Promise.all(addPromises);
+        await Promise.all(updatePromises);
+        await Promise.all(deletePromises);
 
-        Object.assign(items.value[index], payload);
-
-        toast.add(toastHandler('success', 'Zmodyfikowano grupę', 'Pomyślnie zmodyfikowano grupę'));
+        toast.add(toastHandler('success', 'Zmodyfikowano mapę', 'Pomyślnie zmodyfikowano mapę'));
     } catch (error) {
-        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się zmodyfikować grupy.', error));
+        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się zmodyfikować mapy.', error));
     }
 
     editItemDialogVisible.value = false;
