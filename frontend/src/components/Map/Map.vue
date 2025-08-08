@@ -73,7 +73,9 @@ defineExpose({
     deleteSelectedShape,
     setSelectedShapePointsToClosestExtentBorder,
     getAllFeatures,
-    copySelectedShape
+    copySelectedShape,
+    clearSelect,
+    fitToContainer
 });
 
 const currentMode = computed({
@@ -116,10 +118,6 @@ const currentEditLayer = computed({
     get: () => props.editLayer,
     set: () => { }
 })
-const data = computed({
-    get: () => props.data,
-    set: () => { }
-})
 
 const getPointerDelta = getPointerDeltaFunction();
 const mapContainer = ref(null);
@@ -134,8 +132,6 @@ const deletedFeatures = [];
 
 const primaryHex = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim();
 let tempColors = generateComplementaryColors(primaryHex, 20);
-console.log("🚀 ~ primaryHex:", primaryHex)
-console.log("🚀 ~ tempColors:", tempColors)
 
 const highlightStyle = new Style({
     stroke: new Stroke({
@@ -200,12 +196,15 @@ onMounted(() => {
 
     fitMapToContainer(map);
     changeMode(currentMode.value);
-
 });
 
-watch(data, (data) => {
-    generateFeatures(map, data);
-})
+watch(
+    () => props.data,
+    (val) => {
+        generateFeatures(map, val);
+    },
+    { deep: true }
+);
 
 watch(currentMode, (mode) => {
     changeMode(mode);
@@ -332,6 +331,15 @@ function deleteSelectedShape() {
     selected.value = null;
 }
 
+function clearSelect() {
+    allLayers.get(props.editLayer.value)[1].get('select').getFeatures().clear();
+    selected.value = null;
+}
+
+function fitToContainer() {
+    fitMapToContainer(map);
+}
+
 function copySelectedShape() {
     if (selected.value) {
         const newFeature = selected.value.clone();
@@ -375,9 +383,7 @@ function generateFeatures(map, data) {
         let f = new Feature(
             new Polygon(dimensions)
         )
-        f.customData = {
-            ...item,
-        }
+        f.customData = { ...item };
         return f;
     })
 
@@ -388,9 +394,7 @@ function generateFeatures(map, data) {
         let f = new Feature(
             new Polygon(item?.coords)
         )
-        f.customData = {
-            ...item,
-        }
+        f.customData = { ...item };
         return f;
     })
     allLayers.get('zones')[0].getSource().clear();

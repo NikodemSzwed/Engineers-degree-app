@@ -47,10 +47,9 @@
                         <template #content>
                             <div class="h-full overflow-y-auto">
                                 <div v-if="item.ETID == 1" class="w-full h-full flex min-h-[75vh]">
-
-                                    <MapInterface class="flex-1" :data="item.data.mapData" @click.stop="">
+                                    <MapInterface ref="mapInterface" class="flex-1" :data="item.data.mapData"
+                                        @click.stop="" @selected="selectObject" @deselected="deselect(item)">
                                     </MapInterface>
-
                                 </div>
                                 <div v-else-if="item.ETID == 2">
                                     <div class="flex flex-col gap-1">
@@ -143,7 +142,9 @@
             <div class="h-full overflow-y-auto">
                 <div v-if="showItem.ETID == 1" class="w-full h-full flex  min-h-[75vh]">
 
-                    <MapInterface class="flex-1" :data="showItem.data.mapData"></MapInterface>
+                    <MapInterface ref="mapInterfaceDialog" class="flex-1" :data="showItem.data.mapData"
+                        :advanced-view-available="true">
+                    </MapInterface>
 
                 </div>
                 <div v-else-if="showItem.ETID == 2">
@@ -204,7 +205,7 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref, watch } from 'vue';
 import Button from 'primevue/button';
 import Card from 'primevue/card';
 import Toast from 'primevue/toast';
@@ -233,6 +234,8 @@ let socket;
 const displayUUID = ref(false ? '8c029a90-074a-4f24-a2d0-d80cad6338f5' : 'f3c10244-b6eb-4267-abce-6e2809446b5c');
 const alertsPopover = ref();
 const showAlerts = ref([]);
+const mapInterface = ref([]);
+const mapInterfaceDialog = ref(null);
 
 const items = ref([]);
 const orderFields = ref([
@@ -292,6 +295,10 @@ const stopInactivityWatcher = runAfter10MinOfInactivity(() => {
     selectObject(null);
     alertsPopover.value.hide();
     itemDialog.value = false;
+    mapInterface.value.forEach(mi => {
+        mi.clearSelect();
+        mi.fitMapToContainer();
+    });
 });
 
 onMounted(async () => {
@@ -319,13 +326,160 @@ onMounted(async () => {
         // displayUUID.value = localStorage.getItem('displayUUID');
         getData();
     });
+    socket.on('updateElement', (data) => {
+        let element = items.value.find(item => item.EID == data.EID);
+        if (element.ETID == 1) element.label = "Mapa: ";
+        else if (element.ETID == 2) element.label = "Zlecenie: ";
+        else if (element.ETID == 3) element.label = "Sektor: ";
+
+        if (element.ETID == 1) {
+            element.label += data.name;
+            Object.assign(element.data, data);
+            Object.assign(element.data.mapData.find(el => el.EID == data.EID), data);
+
+            mapInterface.value
+                .filter(mi => mi.getMapEID() == data.EID)
+                .forEach(mi => {
+                    mi.setMapData();
+                });
+        } else if (element.ETID == 3) {
+            element.label += data.name;
+            Object.assign(element.data, data);
+        }
+    });
+    socket.on('deleteElement', (data) => {
+        // assigned element was deleted
+        // displayUUID.value = localStorage.getItem('displayUUID');
+        getData();
+    });
     socket.on('deleteDisplay', (data) => {
         socket.emit('leave', 'display-' + displayUUID.value);
         localStorage.removeItem('displayUUID');
         router.push('/Login');
     });
-    socket.on('updateSector', (data) => {
-        console.log("🚀 ~ socket.on ~ updateSector data:", data)
+    socket.on('updateMapNewElement', (data) => {
+        let order = data.order || data.newOrder;
+
+        let mapEIDs = [];
+        if (order) {
+            items.value
+                .filter(item => {
+                    if (item.ETID != 1) {
+                        return false;
+                    }
+
+                    let sector = item.data.mapData.find(el => el.EID == data.newElement.ParentEID);
+                    if (sector) {
+                        mapEIDs.push(item.EID);
+                        order = data.newElement;
+                        order.alerts = [];
+                        item.data.mapData.push(order);
+                    }
+                });
+        } else {
+            itemDialog.value = false;
+            items.value
+                .filter(item => {
+                    if (item.ETID != 1 || item.EID != data.ParentEID) {
+                        return false;
+                    }
+
+                    mapEIDs.push(item.EID);
+                    data.alerts = [];
+                    item.data.mapData.push(data);
+                });
+        }
+
+        mapInterface.value
+            .filter(mi => mapEIDs.includes(mi.getMapEID()))
+            .forEach(mi => {
+                mi.setMapData();
+            });
+
+    });
+    socket.on('updateMapUpdateElement', (data) => {
+        let order = data.order || data.newOrder;
+
+        let mapEIDs = [];
+        if (order) {
+            items.value
+                .filter(item => {
+                    if (item.ETID != 1) {
+                        return false;
+                    }
+
+                    let order = item.data.mapData.find(el => el.EID == data.orderElement.EID);
+
+                    if (order) {
+                        mapEIDs.push(item.EID);
+                        Object.assign(order, data.orderElement);
+                    }
+                });
+        } else {
+            itemDialog.value = false;
+            items.value
+                .filter(item => {
+                    if (item.ETID != 1 || item.EID != data.ParentEID) {
+                        return false;
+                    }
+
+                    let sector = item.data.mapData.find(el => el.EID == data.EID);
+
+                    if (sector) {
+                        mapEIDs.push(item.EID);
+                        Object.assign(sector, data);
+                    }
+
+                });
+        }
+
+        mapInterface.value
+            .filter(mi => mapEIDs.includes(mi.getMapEID()))
+            .forEach(mi => {
+                mi.setMapData();
+            });
+    });
+    socket.on('updateMapDeleteElement', (data) => {
+        let order = data.order || data.newOrder;
+
+        let mapEIDs = [];
+        if (order) {
+            items.value
+                .filter(item => {
+                    if (item.ETID != 1) {
+                        return false;
+                    }
+
+                    let order = item.data.mapData.find(el => el.EID == data.orderElement.EID);
+
+                    if (order) {
+                        mapEIDs.push(item.EID);
+                        item.data.mapData.splice(item.data.mapData.indexOf(order), 1);
+                    }
+                });
+        } else {
+            itemDialog.value = false;
+            items.value
+                .filter(item => {
+                    if (item.ETID != 1 || item.EID != data.ParentEID) {
+                        return false;
+                    }
+
+                    let sector = item.data.mapData.find(el => el.EID == data.EID);
+
+                    if (sector) {
+                        mapEIDs.push(item.EID);
+                        item.data.mapData.splice(item.data.mapData.indexOf(sector), 1);
+                    }
+
+                });
+        }
+        mapInterface.value
+            .filter(mi => mapEIDs.includes(mi.getMapEID()))
+
+            .forEach(mi => {
+                mi.setMapData();
+            });
     });
     socket.on('updateSectorNewOrder', (data) => {
         data.newElement.alerts = [];
@@ -352,12 +506,22 @@ onMounted(async () => {
             item.data.newAlertPresent = true;
         } else {
             items.value.forEach(item => {
-                if (item?.orders.length > 0) {
-                    let order = item.orders.find(order => order.EID == data.EID);
-                    if (!order) return;
-                    order.alerts.push(data);
-                    order.newAlertPresent = true;
+                if (item.ETID == 3) {
+                    if (item?.orders?.length > 0) {
+                        let order = item.orders.find(order => order.EID == data.EID);
+                        if (!order) return;
+                        order.alerts.push(data);
+                        order.newAlertPresent = true;
+                    }
+                } else if (item.ETID == 1) {
+                    if (item?.data?.mapData?.length > 0) {
+                        let element = item.data.mapData.find(el => el.EID == data.EID);
+                        data.date = new Date();
+                        if (!element) return;
+                        element.alerts.push(data);
+                    }
                 }
+
             })
 
         }
@@ -373,16 +537,25 @@ onMounted(async () => {
             else item.data.alerts.find(el => el.State == 0) ? item.data.newAlertPresent = true : item.data.newAlertPresent = false;
         } else {
             items.value.forEach(item => {
-                if (item?.orders.length > 0) {
-                    let order = item.orders.find(order => order.EID == data.EID);
+                if (item.ETID == 3) {
+                    if (item?.orders.length > 0) {
+                        let order = item.orders.find(order => order.EID == data.EID);
 
-                    if (!order) return;
+                        if (!order) return;
 
-                    if (data.State == 2) order.alerts = order.alerts.filter(el => el.AID != data.AID);
-                    else order.alerts.find(el => el.AID == data.AID).State = data.State;
+                        if (data.State == 2) order.alerts = order.alerts.filter(el => el.AID != data.AID);
+                        else order.alerts.find(el => el.AID == data.AID).State = data.State;
 
-                    if (order.alerts.length == 0) order.newAlertPresent = false;
-                    else order.alerts.find(el => el.State == 0) ? order.newAlertPresent = true : order.newAlertPresent = false;
+                        if (order.alerts.length == 0) order.newAlertPresent = false;
+                        else order.alerts.find(el => el.State == 0) ? order.newAlertPresent = true : order.newAlertPresent = false;
+                    }
+                } else if (item.ETID == 1) {
+                    if (item?.data?.mapData?.length > 0) {
+                        let element = item.data.mapData.find(el => el.EID == data.EID);
+                        if (!element) return;
+                        if (data.State == 2) element.alerts = element.alerts.filter(el => el.AID != data.AID);
+                        else element.alerts.find(el => el.AID == data.AID).State = data.State;
+                    }
                 }
             })
 
@@ -397,14 +570,22 @@ onMounted(async () => {
 
         } else {
             items.value.forEach(item => {
-                if (item?.orders.length > 0) {
-                    let order = item.orders.find(order => order.EID == data.EID);
+                if (item.ETID == 3) {
+                    if (item?.orders.length > 0) {
+                        let order = item.orders.find(order => order.EID == data.EID);
 
-                    if (!order) return;
+                        if (!order) return;
 
-                    order.alerts = order.alerts.filter(el => el.AID != data.AID);
-                    if (order.alerts.length == 0) order.newAlertPresent = false;
-                    else order.alerts.find(el => el.State == 0) ? order.newAlertPresent = true : order.newAlertPresent = false;
+                        order.alerts = order.alerts.filter(el => el.AID != data.AID);
+                        if (order.alerts.length == 0) order.newAlertPresent = false;
+                        else order.alerts.find(el => el.State == 0) ? order.newAlertPresent = true : order.newAlertPresent = false;
+                    }
+                } else if (item.ETID == 1) {
+                    if (item?.data?.mapData?.length > 0) {
+                        let element = item.data.mapData.find(el => el.EID == data.EID);
+                        if (!element) return;
+                        element.alerts = element.alerts.filter(el => el.AID != data.AID);
+                    }
                 }
             })
 
@@ -430,7 +611,13 @@ function selectObject(item) {
     dockVisible.value = item?.selected;
 
     items.value.forEach(i => {
-        if (i?.orders) {
+        if (i.ETID == 1) {
+            for (const mi of mapInterface.value) {
+                let parentEID = item?.ParentEID;
+                if (mi.getMapEID() == i.EID && mi.getMapEID() != parentEID) mi.clearSelect()
+            }
+        }
+        else if (i?.orders) {
             i.orders.forEach(order => {
                 if (item !== order) order.selected = false;
             })
@@ -438,6 +625,32 @@ function selectObject(item) {
 
         if (item !== i) i.selected = false;
     });
+}
+
+
+function deselect(item) {
+    for (const mi of mapInterface.value) {
+        if (item?.EID == mi.getMapEID()) mi.clearSelect()
+    }
+
+    let findSelected = items.value.find(i => i.selected);
+    if (!findSelected) items.value.forEach(i => {
+        if (i?.orders) {
+            i.orders.forEach(order => {
+                if (order.selected) findSelected = order;
+            })
+        }
+    })
+
+    for (const mi of mapInterface.value) {
+        let parentEID = selectedItem.value?.ParentEID;
+        if (mi.getMapEID() == item.EID && mi.getMapEID() != parentEID) findSelected = selectedItem.value;
+    }
+
+    if (!findSelected) {
+        dockVisible.value = false;
+        selectedItem.value = null;
+    }
 }
 
 const showEmptyDock = () => {
@@ -550,11 +763,25 @@ async function getData() {
 
             if (element.ETID == 1) {
                 let sectors = data.MapsAndElements.filter(el => el.ParentEID == element.EID);
+                sectors.forEach(sector => {
+                    sector.alerts = sector.alerts.map(alert => {
+                        alert.EIDName = sector.name;
+                        alert.AAName = allAlertTypes.find(at => at.AAID == alert.AAID).name;
+                        return alert;
+                    })
+                })
                 let orders = data.MapsAndElements.filter(el => sectors.some(sector => sector.EID === el.ParentEID));
+                orders.forEach(order => {
+                    order.alerts = order.alerts.map(alert => {
+                        alert.EIDName = order.name;
+                        alert.AAName = allAlertTypes.find(at => at.AAID == alert.AAID).name;
+                        return alert;
+                    })
+                })
                 let all = [...sectors, ...orders, element];
-                all.forEach(element => {
-                    socket.emit('join', 'EID-' + element.EID);
-                });
+
+                socket.emit('join', 'EID-' + element.EID);
+
                 return {
                     label: 'Mapa: ' + element.name,
                     ETID: element.ETID,

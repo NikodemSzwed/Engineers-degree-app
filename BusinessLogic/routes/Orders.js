@@ -67,11 +67,13 @@ router.post('/', async (req, res) => {
             element = element.dataValues;
 
             let type = 'newOrder';
+
             if (element.ETID == 1) {
-                type = 'updateMapNewOrder';
+                type = 'updateMapNewElement';
             } else if (element.ETID == 3) {
                 type = 'updateSectorNewOrder';
             }
+            console.log('🚀 ~ type:', type);
 
             io.to('EID-' + element.EID).emit(type, order);
         });
@@ -244,7 +246,7 @@ router.put('/:id', async (req, res) => {
 
             let type = 'updateOrder';
             if (element.ETID == 1) {
-                type = 'updateMapUpdateOrder';
+                type = 'updateMapUpdateElement';
             } else if (element.ETID == 3) {
                 type = 'updateSectorUpdateOrder';
             }
@@ -295,7 +297,7 @@ router.delete('/:id', async (req, res) => {
 
             let type = 'deleteOrder';
             if (element.ETID == 1) {
-                type = 'updateMapDeleteOrder';
+                type = 'updateMapDeleteElement';
             } else if (element.ETID == 3) {
                 type = 'updateSectorDeleteOrder';
             }

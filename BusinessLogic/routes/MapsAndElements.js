@@ -2,6 +2,7 @@ const express = require('express');
 const getAllowedMaps = require('../functions/getTokenData.js').getAllowedMaps;
 const router = express.Router();
 const { Op } = require('sequelize');
+const { io, findObjectAndParents } = require('../server/server');
 const db = require('../database/db');
 const removePKandFieldsNotInModel = require('../functions/removePKandFieldsNotInModel.js');
 const models = require('../database/getModels.js')();
@@ -97,7 +98,7 @@ router.post('/', async (req, res) => {
         }
 
         transaction = await db.transaction();
-        const element = await MapsAndElements.create(removePKandFieldsNotInModel(req.body, MapsAndElements), {
+        const newElement = await MapsAndElements.create(removePKandFieldsNotInModel(req.body, MapsAndElements), {
             transaction,
         });
         if (req.body.ETID == 1) {
@@ -105,17 +106,36 @@ router.post('/', async (req, res) => {
             await MapsToGroupAssignment.create(
                 {
                     GID: 1,
-                    EID: element.EID,
+                    EID: newElement.EID,
                 },
                 { transaction }
             );
         }
 
         await transaction.commit();
-        res.status(201).json(element);
+        transaction = null;
+        res.status(201).json(newElement);
+
+        let elements = await findObjectAndParents(newElement.EID);
+        elements.forEach(element => {
+            element = element.dataValues;
+
+            let type = 'newElement';
+            if (newElement.EID != element.EID) {
+                if (element.ETID == 1) {
+                    type = 'updateMapNewElement';
+                } else if (element.ETID == 3) {
+                    type = 'updateSectorNewElement';
+                }
+            }
+
+            io.to('EID-' + element.EID).emit(type, newElement);
+        });
     } catch (error) {
-        if (transaction) await transaction.rollback();
-        res.status(500).json({ error: 'Failed to create element', details: error.message });
+        if (transaction) {
+            await transaction.rollback();
+            res.status(500).json({ error: 'Failed to create element', details: error.message });
+        } else console.error(error);
     }
 });
 
@@ -160,6 +180,23 @@ router.put('/:id', async (req, res) => {
             },
         });
         res.json(updatedElement);
+
+        updatedElement = await MapsAndElements.findByPk(req.params.id);
+        let elements = await findObjectAndParents(updatedElement.EID);
+        elements.forEach(element => {
+            element = element.dataValues;
+
+            let type = 'updateElement';
+            if (updatedElement.EID != element.EID) {
+                if (element.ETID == 1) {
+                    type = 'updateMapUpdateElement';
+                } else if (element.ETID == 3) {
+                    type = 'updateSectorUpdateElement';
+                }
+            }
+
+            io.to('EID-' + element.EID).emit(type, updatedElement);
+        });
     } catch (error) {
         res.status(500).json({ error: 'Failed to update element', details: error.message });
     }
@@ -191,12 +228,14 @@ router.delete('/:id', async (req, res) => {
             return res.status(403).json({ error: 'You are not allowed to delete some or all of those elements' });
         }
 
-        let element = await MapsAndElements.findByPk(req.params.id);
-        if (!element) {
+        let deleteElement = await MapsAndElements.findByPk(req.params.id);
+        if (!deleteElement) {
             return res.status(404).json({ error: 'Element not found' });
-        } else if (element.ETID == 1 && !req.decodedToken.admin) {
+        } else if (deleteElement.ETID == 1 && !req.decodedToken.admin) {
             return res.status(403).json({ error: 'You are not allowed to delete maps' });
         }
+
+        let elements = await findObjectAndParents(deleteElement.EID);
 
         await MapsAndElements.destroy({
             where: {
@@ -205,6 +244,22 @@ router.delete('/:id', async (req, res) => {
             },
         });
         res.status(204).end();
+
+        elements.forEach(element => {
+            element = element.dataValues;
+
+            let type = 'deleteElement';
+
+            if (deleteElement.EID != element.EID) {
+                if (element.ETID == 1) {
+                    type = 'updateMapDeleteElement';
+                } else if (element.ETID == 3) {
+                    type = 'updateSectorDeleteElement';
+                }
+            }
+
+            io.to('EID-' + element.EID).emit(type, deleteElement);
+        });
     } catch (error) {
         res.status(500).json({ error: 'Failed to delete element', details: error.message });
     }

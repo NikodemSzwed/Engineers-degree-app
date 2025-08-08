@@ -60,6 +60,7 @@ const props = defineProps({
 const emit = defineEmits(['submit']);
 
 const globalResolver = ({ values }) => {
+    console.log("🚀 ~ globalResolver ~ values:", values)
     if (props.globalResolverOverride) {
         return props.globalResolverOverride({ values });
     }

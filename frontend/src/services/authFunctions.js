@@ -41,7 +41,7 @@ export async function login(login, password) {
 }
 
 export async function logout() {
-    await saveUserData();
+    // await saveUserData();
     try {
         await api.post('/users/logout');
     } catch (error) {

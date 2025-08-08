@@ -27,6 +27,21 @@
             </template>
         </Card>
         <Dialog v-model:visible="addItemDialogVisible" header="Dodaj zlecenie" class="w-11/12 lg:w-1/2" modal>
+            <div class="py-3">
+                <FloatLabel variant="on">
+                    <Select :options="mapList" optionLabel="name" :id="'label' + 'ParentEID'" v-model="chosenMap"
+                        fluid />
+                    <label :for="'label' + 'ParentEID'">{{ 'Wybierz mapę' }}</label>
+                </FloatLabel>
+
+                <MapInterface v-if="showMap" :data="chosenMapData" ref="mapInterface"
+                    @selected="(data) => selected = data" />
+
+                <Message v-if="showError" severity="error" size="small" variant="simple" class="ml-1 mt-1">
+                    {{ showError.message }}
+                </Message>
+            </div>
+
             <Form :fields="addItemFields" @submit="addItemSave">
                 <template #input-State="{ field, $field }">
                     <FloatLabel variant="on">
@@ -46,8 +61,23 @@
                     </FloatLabel>
                 </template>
             </Form>
+
         </Dialog>
         <Dialog v-model:visible="editItemDialogVisible" header="Edytuj zlecenie" class="w-11/12 lg:w-1/2" modal>
+            <div class="py-3">
+                <FloatLabel variant="on">
+                    <Select :options="mapList" optionLabel="name" :id="'label' + 'ParentEID'" v-model="chosenMap"
+                        fluid />
+                    <label :for="'label' + 'ParentEID'">{{ 'Wybierz mapę' }}</label>
+                </FloatLabel>
+
+                <MapInterface v-if="showMap" :data="chosenMapData" ref="mapInterface" v-model:selected="selected" />
+
+                <Message v-if="showError" severity="error" size="small" variant="simple" class="ml-1 mt-1">
+                    {{ showError.message }}
+                </Message>
+            </div>
+
             <Form :initial-values="initialValues" :fields="editItemFields" @submit="editItemSave">
                 <template #input-State="{ field, $field }">
                     <FloatLabel variant="on">
@@ -77,7 +107,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { useToast } from "primevue/usetoast";
 import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
 import Toast from 'primevue/toast';
@@ -88,7 +118,9 @@ import api from '../services/api';
 import Form from '../components/Form/Form.vue';
 import ObjectView from '../components/ObjectView/ObjectView.vue';
 import { toastHandler } from '../services/toastHandler';
-import { MultiSelect, Tag, Select, FloatLabel } from 'primevue';
+import { MultiSelect, Tag, Select, FloatLabel, Message } from 'primevue';
+import MapInterface from '../components/Map/MapInterface.vue';
+
 
 const toast = useToast();
 
@@ -113,6 +145,13 @@ const complexFieldsColumns = ref({
 const mainKey = 'OID';
 const mainPath = '/orders';
 const statesSimplified = [0, 1, 2];
+
+const mapList = ref([]);
+const chosenMap = ref();
+const chosenMapData = ref({});
+const showMap = ref(false);
+const selected = ref(null);
+const showError = ref(null);
 
 const initialValues = ref({});
 
@@ -229,9 +268,9 @@ const loading = ref(true);
 onMounted(async () => {
     try {
         let responseItems = api.get(mainPath);
-        // let elementTypes = api.get('/elementstypes');
+        let maps = api.get('/mapsandelements');
 
-        // addItemFields.value.find(item => item.name === 'ETIDs').componentOptions.options = (await elementTypes).data;
+        mapList.value = (await maps).data;
 
         items.value = (await responseItems).data
             .map(item => {
@@ -244,16 +283,56 @@ onMounted(async () => {
     loading.value = false;
 })
 
+watch(chosenMap, async () => {
+    try {
+        if (chosenMap.value) {
+            let mapData = api.get('/mapsandelements/' + chosenMap.value.EID);
+            chosenMapData.value = (await mapData).data;
+            showMap.value = true;
+        }
+
+    } catch (error) {
+        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych.', error));
+    }
+})
+watch(selected, (value) => {
+    console.log("🚀 ~ value:", value)
+
+})
+
+function setSelected(data, field) {
+    console.log("🚀 ~ setSelected ~ data:", data)
+    field.value = data;
+    console.log("🚀 ~ setSelected ~ field:", field)
+    console.log("🚀 ~ setSelected ~ field.value:", field.value)
+}
+
 function addItem() {
+    selected.value = null;
+    chosenMap.value = null;
+    showMap.value = false;
     addItemDialogVisible.value = true;
 }
 
 async function addItemSave(values) {
+    console.log("🚀 ~ addItemSave ~ selected.value:", selected.value)
+    if (!selected.value) {
+        showError.value = {
+            message: 'Wybierz sektor'
+        };
+        return;
+    } else {
+        showError.value = null;
+    }
+    console.log("🚀 ~ addItemSave ~ values:", values)
     let payload = Object.fromEntries(
         Object.entries(values.newObject.states).map(([key, obj]) => [key, obj.value])
     );
-    payload.ParentEID = 3;
-    // payload.deadline = payload.deadline.toISOString();
+    payload.ParentEID = selected.value.EID;
+    console.log("🚀 ~ addItemSave ~ payload.ParentEID:", payload.ParentEID)
+    selected.value = null;
+    chosenMap.value = null;
+    showMap.value = false;
 
     try {
         let response = await api.post(mainPath, payload);
@@ -267,9 +346,9 @@ async function addItemSave(values) {
 
         items.value.push(order);
 
-        toast.add(toastHandler('success', 'Dodano typ alertu', 'Pomyślnie dodano typ alertu'));
+        toast.add(toastHandler('success', 'Dodano zlecenie', 'Pomyślnie dodano zlecenie'));
     } catch (error) {
-        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się dodać typu alertu.', error));
+        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się dodać zlecenia.', error));
     }
 
     addItemDialogVisible.value = false;
@@ -279,7 +358,7 @@ async function addItemSave(values) {
 
 async function editItem(item) {
     if (!item) {
-        toast.add(toastHandler('warn', 'Nie wybrano typu alertu', 'Wybierz typ alertu który chcesz zmodyfikować'));
+        toast.add(toastHandler('warn', 'Nie wybrano zlecenie', 'Wybierz zlecenie które chcesz zmodyfikować'));
         return;
     }
 
@@ -292,7 +371,7 @@ async function editItem(item) {
         initialValues.value = values;
 
     } catch (error) {
-        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych typu alertu.', error));
+        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych zlecenia.', error));
     }
 
     editItemDialogVisible.value = true;
@@ -310,13 +389,13 @@ async function editItemSave(values) {
         await api.put(mainPath + '/' + values.originalObject[mainKey], payload);
 
         let index = items.value.findIndex(item => item[mainKey] === values.originalObject[mainKey]);
-        if (index === -1) throw new Error("Nie znaleziono typu alertu lokalnie.");
+        if (index === -1) throw new Error("Nie znaleziono zlecenia lokalnie.");
 
         Object.assign(items.value[index], payload);
 
-        toast.add(toastHandler('success', 'Zmodyfikowano typ alertu', 'Pomyślnie zmodyfikowano typ alertu'));
+        toast.add(toastHandler('success', 'Zmodyfikowano zlecenie', 'Pomyślnie zmodyfikowano zlecenie'));
     } catch (error) {
-        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się zmodyfikować typu alertu.', error));
+        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się zmodyfikować zlecenia.', error));
     }
 
     editItemDialogVisible.value = false;
@@ -324,22 +403,22 @@ async function editItemSave(values) {
 
 async function deleteItem(item) {
     if (!item) {
-        toast.add(toastHandler('warn', 'Nie wybrano typu alertu', 'Wybierz typ alertu który chcesz usunąć'));
+        toast.add(toastHandler('warn', 'Nie wybrano zlecenia', 'Wybierz zlecenie który chcesz usunąć'));
         return;
     }
 
     try {
         let index = items.value.indexOf(item);
         if (index == -1) {
-            toast.add(toastHandler('warn', 'Nie wybrano typu alertu', 'Wybierz typ alertu który chcesz usunąć'));
+            toast.add(toastHandler('warn', 'Nie wybrano zlecenia', 'Wybierz zlecenie który chcesz usunąć'));
             return;
         }
 
         await api.delete(mainPath + '/' + item[mainKey]);
         items.value.splice(index, 1);
-        toast.add(toastHandler('success', 'Usunięto typ alertu', 'Pomyślnie usunięto typ alertu'));
+        toast.add(toastHandler('success', 'Usunięto zlecenie', 'Pomyślnie usunięto zlecenie'));
     } catch (error) {
-        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się usunąć typu alertu.', error));
+        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się usunąć zlecenia.', error));
     }
 }
 

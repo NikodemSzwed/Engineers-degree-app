@@ -4,8 +4,8 @@
         <Card :pt="{ body: 'p-2 lg:p-5' }">
             <template #content>
                 <DataTable :items="items" :columns="columns" :advancedFiltersAvailable="true" :showInteractions="true"
-                    :loading="loading" @addItem="addItem" @editItem="editItem" @deleteItem="deleteItem"
-                    @showAdvancedObjectView="showAdvancedObjectView">
+                    :showAddButton="admin" :showDeleteButton="admin" :loading="loading" @addItem="addItem"
+                    @editItem="editItem" @deleteItem="deleteItem" @showAdvancedObjectView="showAdvancedObjectView">
                 </DataTable>
             </template>
         </Card>
@@ -41,8 +41,11 @@ import api from '../services/api';
 import Form from '../components/Form/Form.vue';
 import { toastHandler } from '../services/toastHandler';
 import MapInterface from '../components/Map/MapInterface.vue';
+import { useUserStore } from '../stores/userData';
 
 const toast = useToast();
+const userData = useUserStore();
+const admin = ref(userData.isAdmin);
 
 const items = ref([]);
 const addItemDialogVisible = ref(false);
@@ -145,9 +148,9 @@ async function editItemSave(values) {
     let addPayload = values.add;
     let updatePayload = values.update;
     let deletePayload = values.delete;
+    let map = values.update.find(item => item.ETID == 1);
 
     try {
-
         const addPromises = addPayload.map(element => api.post(mainPath, element));
         const updatePromises = updatePayload.map(element => api.put(mainPath + '/' + element.EID, element));
         const deletePromises = deletePayload.map(EID => api.delete(mainPath + '/' + EID));
@@ -155,6 +158,8 @@ async function editItemSave(values) {
         await Promise.all(addPromises);
         await Promise.all(updatePromises);
         await Promise.all(deletePromises);
+
+        Object.assign(items.value.find(item => item.EID === map.EID), map);
 
         toast.add(toastHandler('success', 'Zmodyfikowano mapę', 'Pomyślnie zmodyfikowano mapę'));
     } catch (error) {

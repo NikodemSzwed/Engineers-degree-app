@@ -6,7 +6,7 @@
                     <div class="flex flex-row justify-between">
                         <div class="flex items-center justify-center" :class="{ 'w-full': advancedViewAvailable }">
                             <span v-if="!editAvailable || mode.value == 'view'" class="font-bold text-lg">Mapa: {{ name
-                            }}</span>
+                                }}</span>
                             <div v-if="editAvailable && mode.value != 'view'"
                                 class="w-full flex justify-between items-center">
                                 <FloatLabel variant="on">
@@ -25,12 +25,13 @@
 
                 </template>
             </Card>
-            <Card class="w-full flex flex-1" :pt="{ content: 'flex flex-1', body: 'flex flex-1 p-2' }">
+            <Card class="w-full flex flex-1 min-h-[30vh]" :pt="{ content: 'flex flex-1', body: 'flex flex-1 p-2' }">
                 <template #content>
                     <Map :name="name" :mode="mode.value" :enable-snap="enableSnap"
                         :enable-simplify-geometry="enableSimplifyGeometry" :layers="layers"
                         :visible-layers="choosenViewLayers" :edit-layer="choosenEditLayer" ref="map"
-                        v-model:selected="selected" v-model:search="search" :data="data" v-if="dataReady"></Map>
+                        v-model:selected="selected" v-model:search="search" v-model:data="dataTransformed"
+                        v-if="dataReady"></Map>
                 </template>
             </Card>
         </div>
@@ -109,8 +110,14 @@
                                 ref="child1ManualHeightControl" class="flex flex-col gap-3 overflow-y-auto">
                                 <span v-if="showSelected.alerts.length > 0">Alerty:</span>
                                 <div v-if="showSelected.alerts.length > 0" class="flex flex-col gap-2">
-                                    <div class="bg-emphasis p-3 rounded-lg" v-for="alert in showSelected.alerts">
-                                        <span>Nazwa: {{ alert.name }}</span>
+                                    <div class="bg-emphasis p-3 rounded-lg flex flex-col gap-3"
+                                        v-for="alert in showSelected.alerts">
+                                        <span>{{ alert.AAName }}</span>
+                                        <span>Dotyczy: {{ alert.EIDName }}</span>
+                                        <span>Zgłoszono: {{ formatDate(alert.date, 'dd.MM.yyyy HH:mm') }}</span>
+                                        <span>Stan: <Tag :severity="getSeverity(alert.State)"
+                                                :value="getAlertMessage(alert.State)"></Tag>
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -136,7 +143,8 @@
 <script setup>
 import { onMounted, ref, watch, computed } from 'vue';
 import Map from './Map.vue';
-import { Card, FloatLabel, Select, MultiSelect, Divider, InputText, ToggleSwitch, Button } from 'primevue';
+import { Card, FloatLabel, Select, MultiSelect, Divider, InputText, ToggleSwitch, Button, Tag } from 'primevue';
+import { format } from 'date-fns';
 
 const props = defineProps({
     editAvailable: {
@@ -154,10 +162,28 @@ const props = defineProps({
     data: {
         type: Array,
         default: []
+    },
+    selected: {
+        type: Object,
+        default: null
     }
 });
 
-const emit = defineEmits(['save']);
+const selected = computed({
+    get: () => props.selected,
+    set(value) {
+        emit('update:selected', value);
+    }
+})
+
+const emit = defineEmits(['save', 'selected', 'deselected', 'update:selected']);
+
+defineExpose({
+    clearSelect,
+    fitMapToContainer,
+    getMapEID,
+    setMapData
+});
 
 const editAvailable = computed(() => props.editAvailable);
 const advancedViewAvailable = computed(() => props.advancedViewAvailable);
@@ -173,13 +199,14 @@ const calculatingParentHeight = ref(true);
 
 const name = ref();
 
-const selected = ref(null);
+
+// const selected = ref(null);
 const showSelected = ref(null);
 const search = ref(null);
 
 const dataReady = ref(false);
 
-const data = ref({});
+const dataTransformed = ref({});
 
 const modes = [
     {
@@ -237,6 +264,19 @@ function copySelectedShape() {
     map.value?.copySelectedShape();
 }
 
+function clearSelect() {
+    map.value?.clearSelect();
+}
+
+function fitMapToContainer() {
+    map.value?.fitToContainer();
+}
+
+function getMapEID() {
+    const mapData = sourceData.value.find((l) => l.ETID === 1);
+    return mapData.EID;
+}
+
 function save() {
     const features = map.value?.getAllFeatures();
 
@@ -258,7 +298,7 @@ function save() {
                 delete f.customData.alerts;
                 delete f.customData.orders;
 
-                return f.customData;
+                return JSON.parse(JSON.stringify(f.customData));
             });
         operationData.update = features.features.physical
             .filter((f) => f.customData.EID !== null)
@@ -267,7 +307,7 @@ function save() {
                 delete f.customData.alerts;
                 delete f.customData.orders;
 
-                return f.customData;
+                return JSON.parse(JSON.stringify(f.customData));
             });
         operationData.update.push({
             EID: mapData.EID,
@@ -277,10 +317,10 @@ function save() {
                 {
                     zones: features.features.zones
                         .map((f) => {
-                            return {
+                            return JSON.parse(JSON.stringify({
                                 name: f.customData.name,
                                 coords: f.getGeometry().getCoordinates()
-                            }
+                            }))
                         })
                 }
             )
@@ -290,11 +330,17 @@ function save() {
     }
 
     emit('save', operationData);
+
 }
 
 
 watch(selected, (value) => {
     showSelected.value = value?.customData;
+    if (!advancedViewAvailable.value) {
+        let data = value?.customData ? JSON.parse(JSON.stringify(value?.customData)) : null;
+        if (data) emit('selected', data);
+        else emit('deselected');
+    }
 })
 
 watch(child1ManualHeightControl, (value) => {
@@ -302,30 +348,38 @@ watch(child1ManualHeightControl, (value) => {
 })
 
 watch(child2ManualHeightControl, (value) => {
-    bindMaxSizeToParent(value, child1ManualHeightControl.value);
+    // bindMaxSizeToParent(value, child1ManualHeightControl.value);
+    bindMaxSizeToParent(value);
 })
 
 watch(parentManualHeightControl, (value) => {
     settingParentHeight();
 })
 
+watch(sourceData, () => {
+    setMapData();
+})
+
 onMounted(() => {
+    setMapData()
+    dataReady.value = true;
+})
+
+function setMapData() {
     const mapData = sourceData.value.find((l) => l.ETID === 1);
     if (mapData) {
         name.value = mapData.name;
-        data.value.zones = JSON.parse(mapData.DimensionsAndStructure_json).zones || [];
+        dataTransformed.value.zones = JSON.parse(mapData.DimensionsAndStructure_json).zones || [];
     }
 
-    data.value.physical = sourceData.value.filter((l) => l.ETID === 3);
-    data.value.physical.forEach((p) => {
+    dataTransformed.value.physical = sourceData.value.filter((l) => l.ETID === 3);
+    dataTransformed.value.physical.forEach((p) => {
         p.orders = sourceData.value.filter((l) => l.ETID === 2 && l.ParentEID === p.EID);
         p.alerts = [...(p.alerts || []), ...p.orders.map((o) => o.alerts || []).flat()];
-        console.log("🚀 ~ p.alerts:", p.alerts)
-
     })
 
-    dataReady.value = true;
-})
+    dataTransformed.value = dataTransformed.value;
+}
 
 function bindMaxSizeToParent(childElement, otherChild = null) {
     const parent = childElement?.parentElement;
@@ -356,5 +410,35 @@ function settingParentHeight() {
         parentHeight.value = parentManualHeightControl.value.getBoundingClientRect().height;
         calculatingParentHeight.value = false;
     }, 100);
+}
+
+function formatDate(date, fmt = 'dd.MM.yyyy') {
+    return format(new Date(date), fmt);
+}
+
+function getSeverity(state) {
+    switch (state) {
+        case 0:
+            return 'danger';
+        case 1:
+            return 'warn';
+        case 2:
+            return 'success';
+        default:
+            return 'info';
+    }
+}
+
+function getAlertMessage(state) {
+    switch (state) {
+        case 0:
+            return 'Nowy';
+        case 1:
+            return 'W trakcie rozwiązywania';
+        case 2:
+            return 'Rozwiązany';
+        default:
+            return 'Inny';
+    }
 }
 </script>

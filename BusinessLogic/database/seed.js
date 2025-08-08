@@ -299,6 +299,7 @@ async function seed() {
             { DEAID: 2, DID: 1, EID: 4 },
             { DEAID: 3, DID: 1, EID: 5 },
             { DEAID: 4, DID: 2, EID: 2 },
+            { DEAID: 5, DID: 2, EID: 26 },
         ]);
 
         await Groups.bulkCreate([
