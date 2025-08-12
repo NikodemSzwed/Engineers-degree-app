@@ -75,7 +75,9 @@ defineExpose({
     getAllFeatures,
     copySelectedShape,
     clearSelect,
-    fitToContainer
+    fitToContainer,
+    setSelect
+
 });
 
 const currentMode = computed({
@@ -334,6 +336,15 @@ function deleteSelectedShape() {
 function clearSelect() {
     allLayers.get(props.editLayer.value)[1].get('select').getFeatures().clear();
     selected.value = null;
+}
+
+function setSelect(EID) {
+    let feature = allLayers.get(props.editLayer.value)[0].getSource().getFeatures().find((f) => f.customData.EID === EID);
+    if (feature) {
+        allLayers.get(props.editLayer.value)[1].get('select').getFeatures().clear();
+        allLayers.get(props.editLayer.value)[1].get('select').getFeatures().push(feature);
+        selected.value = feature
+    }
 }
 
 function fitToContainer() {
@@ -1080,5 +1091,10 @@ function getAllFeatures() {
     color: var(--p-content-hover-color);
     border-radius: 8px;
     cursor: pointer;
+}
+
+.ol-zoom,
+.ol-rotate {
+    width: fit-content;
 }
 </style>

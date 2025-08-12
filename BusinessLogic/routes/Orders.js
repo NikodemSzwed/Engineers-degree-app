@@ -123,7 +123,7 @@ router.get('/', async (req, res) => {
             SELECT me.* FROM MapsAndElements me
             INNER JOIN MapElements ON me.ParentEID = MapElements.EID
           )
-          SELECT Orders.*,me.name as name,mep.name as ParentEIDName FROM MapElements me
+          SELECT Orders.*,me.name as name,mep.name as ParentEIDName,mep.EID as ParentEID FROM MapElements me
           INNER JOIN Orders USING(EID)
           INNER JOIN MapElements mep ON me.ParentEID = mep.EID
           WHERE (:startDate IS NULL OR deadline >= :startDate)
@@ -170,6 +170,7 @@ router.get('/:id', async (req, res) => {
                     'deadline',
                     [col('EID_MapsAndElement.Name'), 'name'],
                     [col('EID_MapsAndElement.ParentE.Name'), 'ParentEIDName'],
+                    [col('EID_MapsAndElement.ParentEID'), 'ParentEID'],
                 ],
             },
             where: {

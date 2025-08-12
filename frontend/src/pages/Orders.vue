@@ -27,21 +27,6 @@
             </template>
         </Card>
         <Dialog v-model:visible="addItemDialogVisible" header="Dodaj zlecenie" class="w-11/12 lg:w-1/2" modal>
-            <div class="py-3">
-                <FloatLabel variant="on">
-                    <Select :options="mapList" optionLabel="name" :id="'label' + 'ParentEID'" v-model="chosenMap"
-                        fluid />
-                    <label :for="'label' + 'ParentEID'">{{ 'Wybierz mapę' }}</label>
-                </FloatLabel>
-
-                <MapInterface v-if="showMap" :data="chosenMapData" ref="mapInterface"
-                    @selected="(data) => selected = data" />
-
-                <Message v-if="showError" severity="error" size="small" variant="simple" class="ml-1 mt-1">
-                    {{ showError.message }}
-                </Message>
-            </div>
-
             <Form :fields="addItemFields" @submit="addItemSave">
                 <template #input-State="{ field, $field }">
                     <FloatLabel variant="on">
@@ -60,24 +45,31 @@
                         <label :for="'label' + field.name">{{ field.label }}</label>
                     </FloatLabel>
                 </template>
+                <template #input-ParentEID="{ field }">
+                    <FloatLabel variant="on">
+                        <Select :options="mapList" optionLabel="name" :id="'label' + field.name" v-model="chosenMap"
+                            fluid :invalid="showError" />
+                        <label :for="'label' + field.name">{{ field.label }}</label>
+                    </FloatLabel>
+
+                    <FormField v-slot="{ id, name, value, onInput, invalid, errors }" :name="field.name"
+                        :initialValue="field.initialValue" class="flex flex-col gap-1" :resolver="field.resolver">
+                        <MapInterface v-if="showMap" :data="chosenMapData" :id="id" :name="name" :value="value"
+                            @update:value="val => onInput({ target: { value: val } })" ref="mapInterface" />
+                        <Message v-if="invalid" v-for="err in errors" severity="error" size="small" variant="simple">
+                            {{(() => { showError = true })()}}
+                            {{ err.message }}
+                        </Message>
+                        <div v-else>
+                            {{(() => { showError = false })()}}
+                        </div>
+                    </FormField>
+
+                </template>
             </Form>
 
         </Dialog>
         <Dialog v-model:visible="editItemDialogVisible" header="Edytuj zlecenie" class="w-11/12 lg:w-1/2" modal>
-            <div class="py-3">
-                <FloatLabel variant="on">
-                    <Select :options="mapList" optionLabel="name" :id="'label' + 'ParentEID'" v-model="chosenMap"
-                        fluid />
-                    <label :for="'label' + 'ParentEID'">{{ 'Wybierz mapę' }}</label>
-                </FloatLabel>
-
-                <MapInterface v-if="showMap" :data="chosenMapData" ref="mapInterface" v-model:selected="selected" />
-
-                <Message v-if="showError" severity="error" size="small" variant="simple" class="ml-1 mt-1">
-                    {{ showError.message }}
-                </Message>
-            </div>
-
             <Form :initial-values="initialValues" :fields="editItemFields" @submit="editItemSave">
                 <template #input-State="{ field, $field }">
                     <FloatLabel variant="on">
@@ -95,11 +87,33 @@
                         <label :for="'label' + field.name">{{ field.label }}</label>
                     </FloatLabel>
                 </template>
+                <template #input-ParentEID="{ field }">
+                    <FloatLabel variant="on">
+                        <Select :options="mapList" optionLabel="name" :id="'label' + field.name" v-model="chosenMap"
+                            fluid :invalid="showError" />
+                        <label :for="'label' + field.name">{{ field.label }}</label>
+                    </FloatLabel>
+
+                    <FormField v-slot="{ id, name, value, onInput, invalid, errors }" :name="field.name"
+                        :initialValue="field.initialValue" class="flex flex-col gap-1" :resolver="field.resolver">
+                        <MapInterface v-if="showMap" :data="chosenMapData" :id="id" :name="name" :value="value"
+                            @update:value="val => onInput({ target: { value: val } })" ref="mapInterface" />
+                        <Message v-if="invalid" v-for="err in errors" severity="error" size="small" variant="simple">
+                            {{(() => { showError = true })()}}
+                            {{ err.message }}
+                        </Message>
+                        <div v-else>
+                            {{(() => { showError = false })()}}
+                        </div>
+                    </FormField>
+
+                </template>
             </Form>
         </Dialog>
         <Dialog v-model:visible="advancedObjectViewVisible" header="Podgląd zlecenia" class="w-11/12 lg:w-3/4" modal
             maximizable :pt="{ content: 'bg-emphasis rounded-b-xl pt-5' }">
             <ObjectView :item="showItem" :fieldMap="fieldMap" :complexFieldsColumns="complexFieldsColumns"></ObjectView>
+            <MapInterface v-if="showMap" :data="chosenMapData" ref="mapInterface" class="mt-3 min-h-[40vh]" />
         </Dialog>
     </div>
 
@@ -120,6 +134,7 @@ import ObjectView from '../components/ObjectView/ObjectView.vue';
 import { toastHandler } from '../services/toastHandler';
 import { MultiSelect, Tag, Select, FloatLabel, Message } from 'primevue';
 import MapInterface from '../components/Map/MapInterface.vue';
+import { FormField } from '@primevue/forms';
 
 
 const toast = useToast();
@@ -137,6 +152,7 @@ const fieldMap = ref({
     deadline: { date: true, format: 'dd.MM.yyyy', label: 'Termin realizacji' },
     name: { label: 'Nazwa zlecenia' },
     ParentEIDName: { label: 'Nazwa sektora na którym się znajduje' },
+    ParentEID: { show: false },
     EID_MapsAndElement: { show: false }
 });
 const complexFieldsColumns = ref({
@@ -146,11 +162,12 @@ const mainKey = 'OID';
 const mainPath = '/orders';
 const statesSimplified = [0, 1, 2];
 
+const mapInterface = ref();
+
 const mapList = ref([]);
 const chosenMap = ref();
 const chosenMapData = ref({});
 const showMap = ref(false);
-const selected = ref(null);
 const showError = ref(null);
 
 const initialValues = ref({});
@@ -215,22 +232,20 @@ const addItemFields = ref([
             check: "required",
             message: "Termin realizacji jest wymagany."
         }]
-    }
-    // {
-    //     name: 'ETIDs',
-    //     label: 'Lista przypisanych rodzajów elementów',
-    //     component: 'MultiSelect',
-    //     componentOptions: {
-    //         options: [],
-    //         optionLabel: "name",
-    //         display: "chip",
-    //         filter: true
-    //     },
-    //     conditions: [{
-    //         check: "required",
-    //         message: "Lista elementów jest wymagana."
-    //     }]
-    // }
+    },
+    {
+        name: 'ParentEID',
+        label: 'Mapa na której się znajduje',
+        component: 'customNoFormField',
+        componentOptions: {},
+        conditions: [
+            {
+                check: "required",
+                message: "Sektor zlecenia jest wymagany."
+            }
+
+        ]
+    },
 ]);
 
 const editItemFields = ref(addItemFields.value);
@@ -284,6 +299,7 @@ onMounted(async () => {
 })
 
 watch(chosenMap, async () => {
+    showMap.value = false;
     try {
         if (chosenMap.value) {
             let mapData = api.get('/mapsandelements/' + chosenMap.value.EID);
@@ -295,42 +311,18 @@ watch(chosenMap, async () => {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych.', error));
     }
 })
-watch(selected, (value) => {
-    console.log("🚀 ~ value:", value)
-
-})
-
-function setSelected(data, field) {
-    console.log("🚀 ~ setSelected ~ data:", data)
-    field.value = data;
-    console.log("🚀 ~ setSelected ~ field:", field)
-    console.log("🚀 ~ setSelected ~ field.value:", field.value)
-}
 
 function addItem() {
-    selected.value = null;
     chosenMap.value = null;
     showMap.value = false;
     addItemDialogVisible.value = true;
 }
 
 async function addItemSave(values) {
-    console.log("🚀 ~ addItemSave ~ selected.value:", selected.value)
-    if (!selected.value) {
-        showError.value = {
-            message: 'Wybierz sektor'
-        };
-        return;
-    } else {
-        showError.value = null;
-    }
-    console.log("🚀 ~ addItemSave ~ values:", values)
     let payload = Object.fromEntries(
         Object.entries(values.newObject.states).map(([key, obj]) => [key, obj.value])
     );
-    payload.ParentEID = selected.value.EID;
-    console.log("🚀 ~ addItemSave ~ payload.ParentEID:", payload.ParentEID)
-    selected.value = null;
+    payload.ParentEID = payload.ParentEID.customData.EID;
     chosenMap.value = null;
     showMap.value = false;
 
@@ -358,32 +350,46 @@ async function addItemSave(values) {
 
 async function editItem(item) {
     if (!item) {
-        toast.add(toastHandler('warn', 'Nie wybrano zlecenie', 'Wybierz zlecenie które chcesz zmodyfikować'));
+        toast.add(toastHandler('warn', 'Nie wybrano zlecenia', 'Wybierz zlecenie które chcesz zmodyfikować'));
         return;
     }
 
     try {
         let response = await api.get(mainPath + '/' + item[mainKey]);
+        let sector = await api.get('/mapsandelements/singleObject/' + response.data.ParentEID);
 
         response.data.deadline = new Date(response.data.deadline);
         let values = { ...response.data };
 
         initialValues.value = values;
+        chosenMap.value = mapList.value.find(item => item.EID === sector.data.ParentEID);
+
+        initialValues.value.ParentEID = undefined;
+
+        editItemDialogVisible.value = true;
+
+        let mapSetupInterval;
+        mapSetupInterval = setInterval(() => {
+            if (mapInterface.value) {
+                mapInterface.value.setSelect(values.ParentEID);
+                clearInterval(mapSetupInterval);
+            }
+        }, 100)
 
     } catch (error) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych zlecenia.', error));
     }
-
-    editItemDialogVisible.value = true;
-
 }
 
 async function editItemSave(values) {
+    console.log("🚀 ~ editItemSave ~ values:", values)
     let payload = Object.fromEntries(
         Object.entries(values.newObject.states).map(([key, obj]) => [key, obj.value])
     );
-    payload.ParentEID = 3;
-    // payload.deadline = payload.deadline.toISOString();
+    payload.ParentEIDName = payload.ParentEID.customData.name;
+    payload.ParentEID = payload.ParentEID.customData.EID;
+    chosenMap.value = null;
+    showMap.value = false;
 
     try {
         await api.put(mainPath + '/' + values.originalObject[mainKey], payload);
@@ -427,10 +433,23 @@ async function showAdvancedObjectView(data) {
         let item = api.get(mainPath + '/' + data[mainKey]);
 
         showItem.value = (await item).data;
+
+        let sector = await api.get('/mapsandelements/singleObject/' + showItem.value.ParentEID);
+        chosenMap.value = mapList.value.find(item => item.EID === sector.data.ParentEID);
+
         advancedObjectViewVisible.value = true;
+
+        let mapSetupInterval;
+        mapSetupInterval = setInterval(() => {
+            if (mapInterface.value) {
+                mapInterface.value.setSelect(showItem.value.ParentEID);
+                clearInterval(mapSetupInterval);
+            }
+        }, 100)
     } catch (error) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych.', error));
     }
+
 
 
 }

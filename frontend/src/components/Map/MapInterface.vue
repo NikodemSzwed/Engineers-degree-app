@@ -1,5 +1,5 @@
 <template>
-    <div class="flex flex-1 flex-col xl:flex-row gap-1 xl:gap-3">
+    <div class="flex flex-1 flex-col xl:flex-row gap-1 xl:gap-3 select-none">
         <div class="flex-3 flex flex-col gap-1 lg:gap-3">
             <Card :pt="{ body: 'p-1 lg:p-5' }" v-if="upperBarVisible">
                 <template #content>
@@ -30,8 +30,9 @@
                     <Map :name="name" :mode="mode.value" :enable-snap="enableSnap"
                         :enable-simplify-geometry="enableSimplifyGeometry" :layers="layers"
                         :visible-layers="choosenViewLayers" :edit-layer="choosenEditLayer" ref="map"
-                        v-model:selected="selected" v-model:search="search" v-model:data="dataTransformed"
+                        v-model:selected="value" v-model:search="search" v-model:data="dataTransformed"
                         v-if="dataReady"></Map>
+
                 </template>
             </Card>
         </div>
@@ -88,16 +89,17 @@
                     <div class="flex flex-1 flex-col gap-3">
                         <span v-if="mode.value == 'draw'">Ostatni utworzony element</span>
                         <span v-else>Wybrany element</span>
-                        <div class="flex flex-col gap-3" v-if="selected && mode.value != 'view'">
+                        <div class="flex flex-col gap-3" v-if="showSelected && mode.value != 'view'">
+
                             <FloatLabel variant="on">
-                                <InputText fluid v-model="selected.customData.name" id="on_label_name"></InputText>
+                                <InputText fluid v-model="showSelected.name" id="on_label_name"></InputText>
                                 <label :for="'on_label_name'">Nazwa</label>
                             </FloatLabel>
                             <Button fluid @click="deleteSelectedShape">Usuń</Button>
                         </div>
                         <!-- <div v-if="showSelected && mode.value == 'view'" class="flex flex-1 flex-col gap-3"> -->
 
-                        <div v-if="showSelected && mode.value == 'view'"
+                        <div v-else-if="showSelected && mode.value == 'view'"
                             class="flex flex-col gap-3 bg-emphasis p-3 rounded-lg">
                             <span>Nazwa: {{ showSelected.name }}</span>
                         </div>
@@ -163,26 +165,39 @@ const props = defineProps({
         type: Array,
         default: []
     },
-    selected: {
+    value: {
         type: Object,
         default: null
-    }
+    },
+    id: String,
+    name: String
 });
 
-const selected = computed({
-    get: () => props.selected,
+const value = computed({
+    get: () => props.value,
     set(value) {
-        emit('update:selected', value);
+        if (!value) {
+            value = null;
+        }
+        showSelected.value = value?.customData;
+        if (!advancedViewAvailable.value) {
+            let data = value?.customData ? JSON.parse(JSON.stringify(value?.customData)) : null;
+            if (data) emit('selected', data);
+            else emit('deselected');
+        }
+        emit('update:value', value);
+        emit('change');
     }
 })
 
-const emit = defineEmits(['save', 'selected', 'deselected', 'update:selected']);
+const emit = defineEmits(['save', 'selected', 'deselected', 'update:value', 'change']);
 
 defineExpose({
     clearSelect,
     fitMapToContainer,
     getMapEID,
-    setMapData
+    setMapData,
+    setSelect
 });
 
 const editAvailable = computed(() => props.editAvailable);
@@ -257,7 +272,7 @@ function setSelectedShapePointsToClosestExtentBorder() {
 
 function deleteSelectedShape() {
     map.value?.deleteSelectedShape();
-    selected.value = null;
+    value.value = null;
 }
 
 function copySelectedShape() {
@@ -270,6 +285,10 @@ function clearSelect() {
 
 function fitMapToContainer() {
     map.value?.fitToContainer();
+}
+
+function setSelect(EID) {
+    return map.value?.setSelect(EID);
 }
 
 function getMapEID() {
@@ -332,16 +351,6 @@ function save() {
     emit('save', operationData);
 
 }
-
-
-watch(selected, (value) => {
-    showSelected.value = value?.customData;
-    if (!advancedViewAvailable.value) {
-        let data = value?.customData ? JSON.parse(JSON.stringify(value?.customData)) : null;
-        if (data) emit('selected', data);
-        else emit('deselected');
-    }
-})
 
 watch(child1ManualHeightControl, (value) => {
     bindMaxSizeToParent(value);

@@ -27,24 +27,41 @@
             </template>
         </Card>
         <Dialog v-model:visible="editItemDialogVisible" header="Edytuj monitor" class="w-11/12 lg:w-1/2" modal>
-            <Form :initial-values="initialValues" :fields="editItemFields" @submit="editItemSave">
-                <template #input-validated="{ field, $field }">
+            <div class="mt-1.5">
+                <div class="mb-5 flex gap-3 flex-col" v-for="i in [0, 1, 2, 3]" :key="i">
                     <FloatLabel variant="on">
-                        <Select v-model="$field.value" :id="'label' + field.name" :options="statesSimplified"
-                            placeholder="Wybierz czy zweryfikowany" v-bind="$field" fluid>
-                            <template #value="slotProps">
-                                <Tag :severity="getSeverity(slotProps.value)" :value="getMessage(slotProps.value)">
-                                </Tag>
-                            </template>
-                            <template #option="slotProps">
-                                <Tag :severity="getSeverity(slotProps.option)" :value="getMessage(slotProps.option)">
-                                </Tag>
-                            </template>
+                        <Select v-model="elements[i].type" :id="'label_element' + i" option-label="label"
+                            :options="elementTypes" fluid show-clear>
                         </Select>
-                        <label :for="'label' + field.name">{{ field.label }}</label>
+                        <label :for="'label_element' + i">{{ 'Wybierz rodzaj elementu nr ' + (i + 1) }}</label>
                     </FloatLabel>
-                </template>
-            </Form>
+                    <FloatLabel variant="on" v-if="elements[i].type">
+                        <Select v-model="elements[i].data" :id="'label_element_name' + i" option-label="name"
+                            :options="elementOptions[i]" fluid>
+                        </Select>
+                        <label :for="'label_element_name' + i">{{ 'Wybierz element nr ' + (i + 1) }}</label>
+                    </FloatLabel>
+                </div>
+                <Form :initial-values="initialValues" :fields="editItemFields" @submit="editItemSave">
+                    <template #input-validated="{ field, $field }">
+                        <FloatLabel variant="on">
+                            <Select v-model="$field.value" :id="'label' + field.name" :options="statesSimplified"
+                                placeholder="Wybierz czy zweryfikowany" v-bind="$field" fluid>
+                                <template #value="slotProps">
+                                    <Tag :severity="getSeverity(slotProps.value)" :value="getMessage(slotProps.value)">
+                                    </Tag>
+                                </template>
+                                <template #option="slotProps">
+                                    <Tag :severity="getSeverity(slotProps.option)"
+                                        :value="getMessage(slotProps.option)">
+                                    </Tag>
+                                </template>
+                            </Select>
+                            <label :for="'label' + field.name">{{ field.label }}</label>
+                        </FloatLabel>
+                    </template>
+                </Form>
+            </div>
         </Dialog>
         <Dialog v-model:visible="advancedObjectViewVisible" header="Podgląd monitora" class="w-11/12 lg:w-3/4" modal
             maximizable :pt="{ content: 'bg-emphasis rounded-b-xl pt-5' }">
@@ -56,7 +73,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { useToast } from "primevue/usetoast";
 import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
 import Toast from 'primevue/toast';
@@ -86,10 +103,20 @@ const fieldMap = ref({
         translateValue: (val) => {
             return getMessage(val)
         }
-    }
+    },
+    DisplayElementsAssignments: { label: 'Przypisane elementy' },
+    MapsAndElements: { show: false },
+    Orders: { show: false },
+    Alerts: { show: false },
 });
 const complexFieldsColumns = ref({
-    DisplayElementsAssignments: [],
+    DisplayElementsAssignments: [
+        { label: 'EID', field: 'EID', dataKay: true, type: 'numeric', show: false },
+        { label: 'Rodzaj elementu', field: 'ETID', type: 'text', addToGlobalFilter: true },
+        {
+            label: 'Nazwa elementu', field: 'name', type: 'text', addToGlobalFilter: true,
+        }
+    ],
     MapsAndElements: [],
     Orders: [],
     Alerts: [],
@@ -148,6 +175,13 @@ const columns = ref([
     }
 ])
 
+const elements = ref([{}, {}, {}, {}]);
+const elementTypes = ref([{ value: 1, label: 'Mapa' }, { value: 2, label: 'Zlecenie' }, { value: 3, label: 'Sektor' }]);
+const elementOptions = ref([[], [], [], []]);
+const mapList = ref([]);
+const orderList = ref([]);
+const sectorList = ref([]);
+
 const loading = ref(true);
 
 onMounted(async () => {
@@ -161,6 +195,19 @@ onMounted(async () => {
     loading.value = false;
 })
 
+watch(elements, (newElements) => {
+    console.log("🚀 ~ newElements:", newElements)
+    newElements.forEach((el, index) => {
+        if (!el?.type?.value) {
+            elementOptions.value[index] = [];
+            return;
+        }
+        if (el.type.value != el?.data?.ETID) el.data = null;
+        elementOptions.value[index] = el.type.value == 1 ? mapList.value : (el.type.value == 2 ? orderList.value : sectorList.value);
+
+    })
+    console.log("🚀 ~ elementOptions.valu:", elementOptions.value)
+}, { deep: true })
 
 
 async function editItem(item) {
@@ -173,6 +220,32 @@ async function editItem(item) {
         let response = await api.get(mainPath + '/' + item[mainKey]);
 
         let values = { ...response.data };
+
+        mapList.value = (await api.get('/mapsandelements')).data;
+        orderList.value = (await api.get('/orders')).data;
+        sectorList.value = (await api.get('/mapsandelements/sectors')).data;
+
+        elements.value = values.DisplayElementsAssignments.map(item => {
+            item.type = elementTypes.value.find(type => type.value === values.MapsAndElements.find(el => el.EID === item.EID).ETID);
+            item = {
+                ...item,
+                data:
+                    item.type.value == 1 ? mapList.value.find(el => el.EID === item.EID) :
+                        (item.type.value == 2 ? orderList.value.find(el => el.EID === item.EID) :
+                            sectorList.value.find(el => el.EID === item.EID))
+            }
+
+            return item;
+        });
+        elements.value.forEach((el, index) => {
+            elementOptions.value[index] = el.data.ETID == 1 ? mapList.value : (el.data.ETID == 2 ? orderList.value : sectorList.value);
+        })
+
+        while (elements.value.length < 4)
+            elements.value.push({});
+
+        console.log("🚀 ~ editItem ~ elements.value:", elements.value)
+
 
         initialValues.value = values;
         console.log("🚀 ~ editItem ~ initialValues.value:", initialValues.value)
@@ -190,13 +263,12 @@ async function editItemSave(values) {
     let payload = Object.fromEntries(
         Object.entries(values.newObject.states).map(([key, obj]) => [key, obj.value])
     );
+    payload.EIDs = elements.value.filter(el => el.data).map(item => item.data.EID);
+    console.log("🚀 ~ editItemSave ~ payload.EIDs:", payload.EIDs)
 
     try {
         await api.put(mainPath + '/' + values.originalObject[mainKey], payload);
 
-        console.log("🚀 ~ editItemSave ~ values.originalObject[mainKey]:", values)
-        console.log("🚀 ~ editItemSave ~ mainKey:", mainKey)
-        console.log("🚀 ~ editItemSave ~ items:", items)
         let index = items.value.findIndex(item => item[mainKey] === values.originalObject[mainKey]);
 
         if (index === -1) throw new Error("Nie znaleziono monitora lokalnie.");
@@ -240,6 +312,12 @@ async function showAdvancedObjectView(data) {
         let item = api.get(mainPath + '/' + data[mainKey]);
 
         showItem.value = (await item).data;
+
+        showItem.value.DisplayElementsAssignments = showItem.value.DisplayElementsAssignments.map(item => {
+            item = { ...item, ...showItem.value.MapsAndElements.find(element => element.EID === item.EID) }
+            item.ETID = item.ETID == 1 ? 'Mapa' : (item.ETID == 2 ? 'Zlecenie' : 'Sektor');
+            return item;
+        });
         console.log("🚀 ~ showAdvancedObjectView ~ showItem.value:", showItem.value)
         advancedObjectViewVisible.value = true;
     } catch (error) {
