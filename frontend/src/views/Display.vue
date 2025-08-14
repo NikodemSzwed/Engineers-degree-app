@@ -227,11 +227,11 @@ const dockVisible = ref(false);
 const selectedItem = ref(null);
 const showItem = ref({});
 const itemDialog = ref(false);
-// const displayUUID = ref();
+const displayUUID = ref();
 const validated = ref(false);
 const displayName = ref(null);
 let socket;
-const displayUUID = ref(false ? '8c029a90-074a-4f24-a2d0-d80cad6338f5' : 'f3c10244-b6eb-4267-abce-6e2809446b5c');
+// const displayUUID = ref(false ? '8c029a90-074a-4f24-a2d0-d80cad6338f5' : 'f3c10244-b6eb-4267-abce-6e2809446b5c');
 const alertsPopover = ref();
 const showAlerts = ref([]);
 const mapInterface = ref([]);
@@ -303,7 +303,7 @@ const stopInactivityWatcher = runAfter10MinOfInactivity(() => {
 
 onMounted(async () => {
     loadDefaultTheme();
-    // displayUUID.value = localStorage.getItem('displayUUID');
+    displayUUID.value = localStorage.getItem('displayUUID');
     try {
         await api.post('/displays/login', {
             UUID: displayUUID.value
@@ -322,8 +322,8 @@ onMounted(async () => {
 
     socket.emit('join-display', 'display-' + displayUUID.value);
     socket.on('updateDisplay', (data) => {
-        console.log("🚀 ~ socket.on ~ data:", data)
-        // displayUUID.value = localStorage.getItem('displayUUID');
+        // console.log("🚀 ~ socket.on ~ data:", data)
+        displayUUID.value = localStorage.getItem('displayUUID');
         getData();
     });
     socket.on('updateElement', (data) => {
@@ -349,7 +349,7 @@ onMounted(async () => {
     });
     socket.on('deleteElement', (data) => {
         // assigned element was deleted
-        // displayUUID.value = localStorage.getItem('displayUUID');
+        displayUUID.value = localStorage.getItem('displayUUID');
         getData();
     });
     socket.on('deleteDisplay', (data) => {
@@ -397,23 +397,57 @@ onMounted(async () => {
             });
 
     });
-    socket.on('updateMapUpdateElement', (data) => {
+    socket.on('updateMapUpdateElement', async (data) => {
         let order = data.order || data.newOrder;
 
         let mapEIDs = [];
         if (order) {
             items.value
-                .filter(item => {
-                    if (item.ETID != 1) {
+                .filter(async item => {
+                    if (item.ETID != 1 || item.EID != data.roomEID) {
                         return false;
                     }
 
                     let order = item.data.mapData.find(el => el.EID == data.orderElement.EID);
-
-                    if (order) {
-                        mapEIDs.push(item.EID);
-                        Object.assign(order, data.orderElement);
+                    let parentChange = data.orderElement.ParentEID != data.oldParentEID;
+                    let orderParent = item.data.mapData.find(el => el.EID == data.orderElement.ParentEID);
+                    let oldParent = item.data.mapData.find(el => el.EID == data.oldParentEID);
+                    if (parentChange && oldParent) {
+                        oldParent.alerts = oldParent.alerts.filter(alert => alert.EID != order?.EID);
                     }
+
+                    if (!orderParent) {
+                        let index = item.data.mapData.indexOf(order);
+                        if (index !== -1) {
+                            item.data.mapData.splice(index, 1);
+                        }
+
+
+                    } else {
+                        if (order) {
+                            Object.assign(order, data.orderElement);
+                        } else {
+                            data.orderElement.alerts = [];
+                            try {
+                                data.orderElement.alerts = (await api.get(`/alerts/by-eid/${data.orderElement.EID}`)).data.map(alert => {
+                                    return {
+                                        ...alert,
+                                        AAName: allAlertTypes.find(at => at.AAID == alert.AAID).name,
+                                        EIDName: data.orderElement.name
+                                    }
+                                });
+                            } catch (error) {
+                                console.log("🚀 ~ error:", error)
+                            }
+
+                            data.orderElement.newAlertPresent = data.orderElement.alerts.some(alert => alert.State == 0);
+                            item.data.mapData.push(data.orderElement);
+                            orderParent.alerts.push(...data.orderElement.alerts);
+                            orderParent.newAlertPresent = orderParent.alerts.some(alert => alert.State == 0);
+                            orderParent.orders.push(data.orderElement);
+                        }
+                    }
+                    mapEIDs.push(item.EID);
                 });
         } else {
             itemDialog.value = false;
@@ -487,8 +521,38 @@ onMounted(async () => {
         items.value.find(item => item.EID == data.newElement.ParentEID).orders.push(data.newElement);
 
     });
-    socket.on('updateSectorUpdateOrder', (data) => {
-        Object.assign(items.value.find(item => item.EID == data.orderElement.ParentEID).orders.find(el => el.EID == data.orderElement.EID), data.orderElement);
+    socket.on('updateSectorUpdateOrder', async (data) => {
+        console.log("🚀 ~ data:", data)
+        if (data.oldParentEID == data.orderElement.ParentEID) {
+            Object.assign(items.value.find(item => item.EID == data.orderElement.ParentEID).orders.find(el => el.EID == data.orderElement.EID), data.orderElement);
+        } else {
+            const oldParentItem = items.value.find(item => item.EID == data.oldParentEID && data.roomEID == item.EID);
+            if (oldParentItem) {
+                const index = oldParentItem.orders.findIndex(order => order.EID === data.orderElement.EID);
+                if (index !== -1) {
+                    oldParentItem.orders.splice(index, 1);
+                }
+            }
+
+            const newParentItem = items.value.find(item => item.EID == data.orderElement.ParentEID && data.roomEID == item.EID);
+            if (newParentItem) {
+                data.orderElement.alerts = [];
+                try {
+                    data.orderElement.alerts = (await api.get(`/alerts/by-eid/${data.orderElement.EID}`)).data.map(alert => {
+                        return {
+                            ...alert,
+                            AAName: allAlertTypes.find(at => at.AAID == alert.AAID).name
+                        }
+                    });
+                } catch (error) {
+                    console.log("🚀 ~ error:", error)
+                }
+
+                data.orderElement.newAlertPresent = data.orderElement.alerts.some(alert => alert.State == 0);
+                newParentItem.orders.push(data.orderElement);
+            }
+        }
+
     });
     socket.on('updateSectorDeleteOrder', (data) => {
         const parentItem = items.value.find(item => item.EID === data.orderElement.ParentEID);
@@ -629,10 +693,6 @@ function selectObject(item) {
 
 
 function deselect(item) {
-    for (const mi of mapInterface.value) {
-        if (item?.EID == mi.getMapEID()) mi.clearSelect()
-    }
-
     let findSelected = items.value.find(i => i.selected);
     if (!findSelected) items.value.forEach(i => {
         if (i?.orders) {

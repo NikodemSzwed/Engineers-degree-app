@@ -33,7 +33,8 @@
                         <Select v-model="elements[i].type" :id="'label_element' + i" option-label="label"
                             :options="elementTypes" fluid show-clear>
                         </Select>
-                        <label :for="'label_element' + i">{{ 'Wybierz rodzaj elementu nr ' + (i + 1) }}</label>
+                        <label :for="'label_element' + i">{{ `Wybierz rodzaj elementu nr ` + (i + 1)
+                            + `(opcjonalne)` }}</label>
                     </FloatLabel>
                     <FloatLabel variant="on" v-if="elements[i].type">
                         <Select v-model="elements[i].data" :id="'label_element_name' + i" option-label="name"
@@ -263,7 +264,8 @@ async function editItemSave(values) {
     let payload = Object.fromEntries(
         Object.entries(values.newObject.states).map(([key, obj]) => [key, obj.value])
     );
-    payload.EIDs = elements.value.filter(el => el.data).map(item => item.data.EID);
+    payload.EIDs = elements.value.filter(el => el.data && el.type).map(item => item.data.EID);
+    console.log("🚀 ~ editItemSave ~ elements.value:", elements.value)
     console.log("🚀 ~ editItemSave ~ payload.EIDs:", payload.EIDs)
 
     try {

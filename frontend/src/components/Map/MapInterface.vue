@@ -6,7 +6,7 @@
                     <div class="flex flex-row justify-between">
                         <div class="flex items-center justify-center" :class="{ 'w-full': advancedViewAvailable }">
                             <span v-if="!editAvailable || mode.value == 'view'" class="font-bold text-lg">Mapa: {{ name
-                                }}</span>
+                            }}</span>
                             <div v-if="editAvailable && mode.value != 'view'"
                                 class="w-full flex justify-between items-center">
                                 <FloatLabel variant="on">
@@ -384,7 +384,7 @@ function setMapData() {
     dataTransformed.value.physical = sourceData.value.filter((l) => l.ETID === 3);
     dataTransformed.value.physical.forEach((p) => {
         p.orders = sourceData.value.filter((l) => l.ETID === 2 && l.ParentEID === p.EID);
-        p.alerts = [...(p.alerts || []), ...p.orders.map((o) => o.alerts || []).flat()];
+        p.alerts = [...new Set([...(p.alerts || []), ...p.orders.map((o) => o.alerts || []).flat()])];
     })
 
     dataTransformed.value = dataTransformed.value;

@@ -10,6 +10,7 @@ import PrimeVue from 'primevue/config';
 import Aura from '@primeuix/themes/aura';
 import { definePreset, usePreset } from '@primeuix/themes';
 import ToastService from 'primevue/toastservice';
+import pl from './locale/pl.json';
 
 const app = createApp(App);
 const pinia = createPinia();
@@ -94,6 +95,8 @@ app.use(PrimeVue, {
             darkModeSelector: '.dark',
         },
     },
+    locale: pl,
 });
 app.use(ToastService);
+
 app.mount('#app');

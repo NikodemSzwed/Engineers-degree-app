@@ -185,11 +185,14 @@ router.get('/:id', async (req, res) => {
 
 router.get('/by-eid/:eid', async (req, res) => {
     try {
-        let allowedMaps = getAllowedMaps(req.cookies['WarehouseLogisticsToken']);
+        console.log('🚀 ~ req.decodedToken.displayUUID:', req.decodedToken.displayUUID);
         let EIDs = [req.params.eid];
+        if (!req.decodedToken.displayUUID) {
+            let allowedMaps = getAllowedMaps(req.cookies['WarehouseLogisticsToken']);
 
-        if (await allowence(allowedMaps, EIDs)) {
-            return res.status(403).json({ error: 'You are not allowed to check some or all of those elements' });
+            if (await allowence(allowedMaps, EIDs)) {
+                return res.status(403).json({ error: 'You are not allowed to check some or all of those elements' });
+            }
         }
 
         const alerts = await Alerts.findAll({

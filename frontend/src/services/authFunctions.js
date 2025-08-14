@@ -33,7 +33,7 @@ export async function login(login, password) {
         userHistory.set(JSON.parse(response.data.user.personalSettings).history || []);
         loadTheme();
         startAuthRefresh();
-        await router.push({ name: 'Dashboard' });
+        await router.push({ path: '/dashboard' });
     } catch (error) {
         console.log('Login failed', error);
         throw new Error('Zalogowanie się nie powiodło. Powód: ' + error.response.data.error);
@@ -51,5 +51,5 @@ export async function logout() {
     userData.clearUser();
     stopAuthRefresh();
     useHistory().clear();
-    await router.push({ name: 'Login' });
+    await router.push({ path: '/login' });
 }

@@ -361,7 +361,7 @@ async function editItem(item) {
         response.data.deadline = new Date(response.data.deadline);
         let values = { ...response.data };
 
-        initialValues.value = values;
+        initialValues.value = { ...values };
         chosenMap.value = mapList.value.find(item => item.EID === sector.data.ParentEID);
 
         initialValues.value.ParentEID = undefined;
@@ -382,7 +382,6 @@ async function editItem(item) {
 }
 
 async function editItemSave(values) {
-    console.log("🚀 ~ editItemSave ~ values:", values)
     let payload = Object.fromEntries(
         Object.entries(values.newObject.states).map(([key, obj]) => [key, obj.value])
     );

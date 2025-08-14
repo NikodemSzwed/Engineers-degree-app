@@ -123,7 +123,7 @@ router.get('/', async (req, res) => {
             SELECT me.* FROM MapsAndElements me
             INNER JOIN MapElements ON me.ParentEID = MapElements.EID
           )
-          SELECT Orders.*,me.name as name,mep.name as ParentEIDName,mep.EID as ParentEID FROM MapElements me
+          SELECT Orders.*,me.name as name,mep.name as ParentEIDName,mep.EID as ParentEID,me.ETID as ETID FROM MapElements me
           INNER JOIN Orders USING(EID)
           INNER JOIN MapElements mep ON me.ParentEID = mep.EID
           WHERE (:startDate IS NULL OR deadline >= :startDate)
@@ -215,6 +215,9 @@ router.put('/:id', async (req, res) => {
         if (await allowence(allowedMaps, EIDFromOrder)) {
             return res.status(403).json({ error: 'You are not allowed to check some or all of those elements' });
         }
+
+        const orderME = await MapsAndElements.findByPk(order.EID);
+
         transaction = await db.transaction();
         const updatedOrder = await Orders.update(req.body, {
             where: {
@@ -229,7 +232,9 @@ router.put('/:id', async (req, res) => {
             },
             transaction,
         });
+
         await transaction.commit();
+        transaction = null;
         res.json({
             updatedOrder,
             updatedMapsFromOrderUpdate,
@@ -239,9 +244,13 @@ router.put('/:id', async (req, res) => {
         const fullOrder = {
             order,
             orderElement,
+            oldParentEID: orderME.ParentEID,
         };
 
         let elements = await findObjectAndParents(order.EID);
+        if (!elements.some(element => element.EID === orderME.ParentEID)) {
+            elements.push(...(await findObjectAndParents(orderME.ParentEID)));
+        }
         elements.forEach(element => {
             element = element.dataValues;
 
@@ -252,11 +261,14 @@ router.put('/:id', async (req, res) => {
                 type = 'updateSectorUpdateOrder';
             }
 
-            io.to('EID-' + element.EID).emit(type, fullOrder);
+            io.to('EID-' + element.EID).emit(type, { ...fullOrder, roomEID: element.EID });
         });
     } catch (error) {
-        if (transaction) await transaction.rollback();
-        res.status(500).json({ error: 'Failed to update order', msg: error });
+        console.error('🚀 ~ error:', error);
+        if (transaction) {
+            await transaction.rollback();
+            res.status(500).json({ error: 'Failed to update order', msg: error });
+        }
     }
 });
 
