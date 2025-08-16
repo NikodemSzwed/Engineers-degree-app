@@ -84,6 +84,9 @@ router.post('/login', async (req, res) => {
             ],
         });
         const userEIDs = userMaps.map(map => map.EID);
+        if (userEIDs.length === 0) {
+            throw new Error(`You don't have permission to any maps. Contact the administrator.`);
+        }
 
         const userGroups = await Groups.findAll({
             attributes: ['GID'],

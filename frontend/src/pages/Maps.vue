@@ -1,6 +1,5 @@
 <template>
     <div>
-        <Toast />
         <Card :pt="{ body: 'p-2 lg:p-5' }">
             <template #content>
                 <DataTable :items="items" :columns="columns" :advancedFiltersAvailable="true" :showInteractions="true"
@@ -15,8 +14,8 @@
         <Dialog v-model:visible="editItemDialogVisible" header="Edytuj mapę" class="w-11/12 lg:w-3/4" modal maximizable
             :pt="{ content: 'bg-emphasis rounded-b-xl pt-5' }">
             <div class="w-full h-full flex  min-h-[75vh]">
-                <MapInterface :editAvailable="true" :upperBarVisible="true" :advancedViewAvailable="true"
-                    :data="initialValues" @save="editItemSave">
+                <MapInterface v-model:value="selectedItem" :editAvailable="true" :upperBarVisible="true"
+                    :advancedViewAvailable="true" :data="initialValues" @save="editItemSave">
                 </MapInterface>
             </div>
         </Dialog>
@@ -33,7 +32,6 @@
 <script setup>
 import { onMounted, ref } from 'vue';
 import { useToast } from "primevue/usetoast";
-import Toast from 'primevue/toast';
 import Card from 'primevue/card';
 import Dialog from 'primevue/dialog';
 import DataTable from '../components/DataTable/DataTable.vue';
@@ -53,6 +51,7 @@ const editItemDialogVisible = ref(false);
 
 const advancedObjectViewVisible = ref(false);
 const showItem = ref([]);
+const selectedItem = ref(null);
 
 const mainKey = 'EID';
 const mainPath = '/mapsandelements';
@@ -81,9 +80,6 @@ const addItemFields = ref([
         }]
     }
 ]);
-
-const editItemFields = ref(addItemFields.value);
-
 
 const columns = ref([
     { label: 'EID', field: 'EID', type: 'numeric', dataKey: true, show: false },
@@ -118,6 +114,8 @@ async function addItemSave(values) {
 
         items.value.push(response.data);
 
+        await api.post('/users/refresh');
+
         toast.add(toastHandler('success', 'Dodano mapę', 'Pomyślnie dodano mapę'));
     } catch (error) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się dodać mapy', error));
@@ -134,14 +132,13 @@ async function editItem(item) {
 
     try {
         let response = await api.get(mainPath + '/' + item[mainKey]);
+        console.log("🚀 ~ editItem ~ response:", response.data)
 
         initialValues.value = response.data;
+        editItemDialogVisible.value = true;
     } catch (error) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych mapy', error));
     }
-
-    editItemDialogVisible.value = true;
-
 }
 
 async function editItemSave(values) {
@@ -177,10 +174,6 @@ async function deleteItem(item) {
 
     try {
         let index = items.value.indexOf(item);
-        if (index == -1) {
-            toast.add(toastHandler('warn', 'Nie wybrano mapy', 'Wybierz mapę którą chcesz usunąć'));
-            return;
-        }
 
         await api.delete(mainPath + '/' + item[mainKey]);
         items.value.splice(index, 1);
@@ -199,8 +192,5 @@ async function showAdvancedObjectView(data) {
     } catch (error) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych.', error));
     }
-
-
 }
-
 </script>

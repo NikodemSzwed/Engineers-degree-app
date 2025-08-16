@@ -1,12 +1,10 @@
 <template>
     <div>
-        <Toast />
         <Card :pt="{ body: 'p-2 lg:p-5' }">
             <template #content>
                 <DataTable :items="items" :columns="columns" :advancedFiltersAvailable="true" :showInteractions="true"
                     :loading="loading" :showAddButton="false" @editItem="editItem" @deleteItem="deleteItem"
                     @showAdvancedObjectView="showAdvancedObjectView">
-                    <!-- @addItem="addItem" -->
                     <template #body-State="{ data }">
                         <Tag :severity="getSeverity(data.State)" :value="getMessage(data.State)"></Tag>
                     </template>
@@ -27,9 +25,6 @@
                 </DataTable>
             </template>
         </Card>
-        <!-- <Dialog v-model:visible="addItemDialogVisible" header="Dodaj alert" class="w-11/12 lg:w-1/2" modal>
-            <Form :fields="addItemFields" @submit="addItemSave" />
-        </Dialog> -->
         <Dialog v-model:visible="editItemDialogVisible" header="Edytuj alert" class="w-11/12 lg:w-1/2" modal>
             <Form :initial-values="initialValues" :fields="editItemFields" @submit="editItemSave">
                 <template #input-State="{ field, $field }">
@@ -64,7 +59,6 @@
 import { onMounted, ref } from 'vue';
 import { useToast } from "primevue/usetoast";
 import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
-import Toast from 'primevue/toast';
 import Card from 'primevue/card';
 import Dialog from 'primevue/dialog';
 import DataTable from '../components/DataTable/DataTable.vue';
@@ -77,7 +71,6 @@ import { Tag, MultiSelect, Select, FloatLabel } from 'primevue';
 const toast = useToast();
 
 const items = ref([]);
-const addItemDialogVisible = ref(false);
 const editItemDialogVisible = ref(false);
 
 const advancedObjectViewVisible = ref(false);
@@ -104,48 +97,6 @@ const statesSimplified = [0, 1, 2];
 
 const initialValues = ref({});
 
-// const addItemFields = ref([
-//     {
-//         name: 'AAID',
-//         label: 'Rodzaj alertu',
-//         component: 'Select',
-//         componentOptions: {
-//             options: [],
-//             optionLabel: "name",
-//             filter: true
-//         },
-//         conditions: [{
-//             check: "required",
-//             message: "Rodzaj alertu jest wymagany."
-//         }]
-//     },
-//     {
-//         name: 'MapChooser',
-//         label: 'Wybierz mapę na której znajduje się obiekt którego dotyczy alert',
-//         component: 'Select',
-//         componentOptions: {
-//             options: [],
-//             optionLabel: "name",
-//             filter: true
-//         },
-//         conditions: [{
-//             check: "required",
-//             message: "Mapa jest wymagana."
-//         }]
-//     },
-//     {
-//         name: 'EID',
-//         label: 'Wybierz obiekt którego dotyczy alert',
-//         component: 'custom',
-//         componentOptions: {
-//         },
-//         conditions: [{
-//             check: "required",
-//             message: "Obiekt jest wymagany."
-//         }]
-//     }
-// ]);
-
 const editItemFields = ref([
     {
         name: 'State',
@@ -158,7 +109,6 @@ const editItemFields = ref([
         }]
     }
 ]);
-
 
 const columns = ref([
     { label: 'AID', field: 'AID', type: 'numeric', dataKey: true, show: false },
@@ -203,7 +153,6 @@ onMounted(async () => {
         let alertsTypes = api.get('/alertstypes');
 
         columns.value.find(item => item.field === 'AAName').options = (await alertsTypes).data.map(item => item.name);
-        // addItemFields.value.find(item => item.name === 'AAID').componentOptions.options = (await alertsTypes).data;
 
         items.value = (await responseItems).data.map(item => {
             item.date = new Date(item.date);
@@ -214,33 +163,6 @@ onMounted(async () => {
     }
     loading.value = false;
 })
-
-// function addItem() {
-//     addItemDialogVisible.value = true;
-// }
-
-// async function addItemSave(values) {
-//     let payload = Object.fromEntries(
-//         Object.entries(values.newObject.states).map(([key, obj]) => [key, obj.value])
-//     );
-//     payload.ETIDs = payload.ETIDs.map(item => item.ETID);
-
-//     try {
-//         let response = await api.post(mainPath, payload);
-
-//         delete response.data.ETIDs;
-
-//         items.value.push(response.data);
-
-//         toast.add(toastHandler('success', 'Dodano alert', 'Pomyślnie dodano alert'));
-//     } catch (error) {
-//         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się dodać alertu.', error));
-//     }
-
-//     addItemDialogVisible.value = false;
-// }
-
-
 
 async function editItem(item) {
     if (!item) {
@@ -254,13 +176,10 @@ async function editItem(item) {
         let values = { ...response.data };
 
         initialValues.value = values;
-
+        editItemDialogVisible.value = true;
     } catch (error) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych alertu.', error));
     }
-
-    editItemDialogVisible.value = true;
-
 }
 
 async function editItemSave(values) {
@@ -293,10 +212,6 @@ async function deleteItem(item) {
 
     try {
         let index = items.value.indexOf(item);
-        if (index == -1) {
-            toast.add(toastHandler('warn', 'Nie wybrano alertu', 'Wybierz alert który chcesz usunąć'));
-            return;
-        }
 
         await api.delete(mainPath + '/' + item[mainKey]);
 
@@ -351,5 +266,4 @@ function getMessage(state) {
             return 'Inny';
     }
 }
-
 </script>

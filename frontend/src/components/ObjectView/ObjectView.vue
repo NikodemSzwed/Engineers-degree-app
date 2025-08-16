@@ -21,9 +21,7 @@
                 <DataTable :items="item.value" :columns="props.complexFieldsColumns[item.key]" :showInteractions="false"
                     :showAdvancedObjectView="false"></DataTable>
             </template>
-
         </Card>
-
     </div>
 </template>
 
@@ -87,5 +85,4 @@ onMounted(() => {
 function formatDate(date, fmt = 'dd.MM.yyyy HH:mm') {
     return format(new Date(date), fmt);
 }
-
 </script>

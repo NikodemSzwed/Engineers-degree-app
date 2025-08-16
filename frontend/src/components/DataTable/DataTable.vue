@@ -3,8 +3,8 @@
      used for virtual scroller height
      <div ref="wrapper" class="flex-1"> -->
 
-    <DataTable v-model:selection="selected" :value="props.items" :dataKey="dataKey" :loading="props.loading"
-        size="small" scrollable :scrollHeight="scrollHeight" stripedRows columnResizeMode="fit" :rows="10"
+    <DataTable v-model:selection="selected" :value="items" :dataKey="dataKey" :loading="props.loading" size="small"
+        scrollable :scrollHeight="scrollHeight" stripedRows columnResizeMode="fit" :rows="10"
         :rowsPerPageOptions="[5, 10, 15, 20, 50]" :paginator="!virtualScrollerActive && props.showPaginator"
         :paginatorTemplate="{
             '640px': 'PrevPageLink CurrentPageReport NextPageLink RowsPerPageDropdown',
@@ -130,7 +130,7 @@
 <script setup>
 import { DataTable, Column } from 'primevue';
 import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
-import { onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { InputIcon, InputText, InputNumber, IconField, Button, Popover, ToggleSwitch, DatePicker, MultiSelect, FloatLabel } from 'primevue';
 import { format } from 'date-fns';
 
@@ -201,6 +201,10 @@ const props = defineProps({
 
 const emit = defineEmits(['addItem', 'editItem', 'deleteItem', 'showAdvancedObjectView']);
 
+const items = computed({
+    get: () => props.items,
+    set: () => { }
+})
 const localColumnsOptions = ref([...props.columns.filter(col => col.show == false ? false : true)]);
 const localColumns = ref(localColumnsOptions.value);
 const frozenColumns = ref([...props.columns.filter(col => col.frozen == true ? true : false)]);
@@ -281,6 +285,11 @@ function formatDate(date, col) {
     if (col.showTime) fmt += ' ' + (col.timeFormat || 'HH:mm');
     return format(new Date(date), fmt);
 }
+
+watch(items, () => {
+    if (!items.value.find(item => item == selected.value)) selected.value = null;
+}, { deep: true })
+
 
 
 //to do virtuallscroller

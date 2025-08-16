@@ -35,8 +35,7 @@
 
                         <Form :fields="loginFields" :submitLabel="'Zaloguj'" @submit="onFormSubmit">
                         </Form>
-                        <Button label="zaloguj" class="w-fit" @click="login('Administrator', 'ZAQ12wsx@#')"></Button>
-                        <Button label="zaloguj2" class="w-fit" @click="login('Kierownik', 'ZAQ12wsx@#')"></Button>
+
 
                         <div class="py-3 flex flex-col items-center text-sm text-primary-500 cursor-pointer"
                             @click="registerDevice">
@@ -68,6 +67,7 @@ import { toggleDarkMode } from '../services/themeChanger.js';
 import { useRouter } from 'vue-router';
 import api from '../services/api.js';
 import { loadDefaultTheme } from '../services/themeChanger';
+import { toastHandler } from '../services/toastHandler.js';
 
 const color = ref('var(--color-primary)');
 const toast = useToast();
@@ -108,12 +108,7 @@ async function onFormSubmit(values) {
     try {
         await login(values.newObject.states.login.value, values.newObject.states.password.value);
     } catch (error) {
-        toast.add({
-            severity: 'error',
-            summary: 'Wystąpił problem',
-            detail: error.message,
-            life: 6000
-        });
+        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się zalogować.', error));
     }
 
 }
@@ -129,12 +124,7 @@ async function registerDevice() {
 
         localStorage.setItem('displayUUID', response.data.UUID);
     } catch (error) {
-        toast.add({
-            severity: 'error',
-            summary: 'Wystąpił problem',
-            detail: error.message,
-            life: 6000
-        });
+        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się zarejestrować urządzenia.', error));
     }
 
     router.push('/Display');

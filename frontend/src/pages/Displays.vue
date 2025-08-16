@@ -1,6 +1,5 @@
 <template>
     <div>
-        <Toast />
         <Card :pt="{ body: 'p-2 lg:p-5' }">
             <template #content>
                 <DataTable :items="items" :columns="columns" :advancedFiltersAvailable="true" :showInteractions="true"
@@ -69,15 +68,12 @@
             <ObjectView :item="showItem" :fieldMap="fieldMap" :complexFieldsColumns="complexFieldsColumns"></ObjectView>
         </Dialog>
     </div>
-
-
 </template>
 
 <script setup>
 import { onMounted, ref, watch } from 'vue';
 import { useToast } from "primevue/usetoast";
 import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
-import Toast from 'primevue/toast';
 import Card from 'primevue/card';
 import Dialog from 'primevue/dialog';
 import DataTable from '../components/DataTable/DataTable.vue';
@@ -90,7 +86,6 @@ import { Tag, MultiSelect, Select, FloatLabel } from 'primevue';
 const toast = useToast();
 
 const items = ref([]);
-const addItemDialogVisible = ref(false);
 const editItemDialogVisible = ref(false);
 
 const advancedObjectViewVisible = ref(false);
@@ -157,7 +152,6 @@ const editItemFields = ref([
     }
 ]);
 
-
 const columns = ref([
     { label: 'DID', field: 'DID', type: 'numeric', dataKey: true, show: false },
     { label: 'Nazwa monitora', field: 'name', type: 'text', addToGlobalFilter: true },
@@ -205,11 +199,9 @@ watch(elements, (newElements) => {
         }
         if (el.type.value != el?.data?.ETID) el.data = null;
         elementOptions.value[index] = el.type.value == 1 ? mapList.value : (el.type.value == 2 ? orderList.value : sectorList.value);
-
     })
     console.log("🚀 ~ elementOptions.valu:", elementOptions.value)
 }, { deep: true })
-
 
 async function editItem(item) {
     if (!item) {
@@ -250,15 +242,11 @@ async function editItem(item) {
 
         initialValues.value = values;
         console.log("🚀 ~ editItem ~ initialValues.value:", initialValues.value)
-
+        editItemDialogVisible.value = true;
     } catch (error) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych monitora.', error));
     }
-
-    editItemDialogVisible.value = true;
-
 }
-
 
 async function editItemSave(values) {
     let payload = Object.fromEntries(
@@ -282,8 +270,6 @@ async function editItemSave(values) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się zmodyfikować monitora.', error));
     }
 
-
-
     editItemDialogVisible.value = false;
 }
 
@@ -294,12 +280,6 @@ async function deleteItem(item) {
     }
 
     try {
-        let index = items.value.indexOf(item);
-        if (index == -1) {
-            toast.add(toastHandler('warn', 'Nie wybrano monitora', 'Wybierz monitor który chcesz usunąć'));
-            return;
-        }
-
         await api.delete(mainPath + '/' + item[mainKey]);
 
         items.value.splice(items.value.indexOf(item), 1);
@@ -325,8 +305,6 @@ async function showAdvancedObjectView(data) {
     } catch (error) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych.', error));
     }
-
-
 }
 
 function getSeverity(state) {
@@ -350,5 +328,4 @@ function getMessage(state) {
             return 'Inny';
     }
 }
-
 </script>

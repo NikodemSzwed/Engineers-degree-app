@@ -41,12 +41,10 @@ import DataTable from '@/components/DataTable/DataTable.vue';
 import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
 import { Tag, MultiSelect } from 'primevue';
 import { connect } from '../../../services/websocket';
+import { useToast } from 'primevue';
+import { toastHandler } from '../../../services/toastHandler';
 
-const states = [
-    { name: 'Nowy', value: 0, severity: 'danger' },
-    { name: 'W trakcie rozwiązywania', value: 1, severity: 'warn' },
-    { name: 'Rozwiązany', value: 2, severity: 'success' },
-];
+const toast = useToast();
 const statesSimplified = [0, 1, 2];
 const loading = ref(true);
 const socket = connect();
@@ -86,24 +84,7 @@ const items = ref([]);
 let cleanItemsIntervalId;
 
 onMounted(async () => {
-    try {
-        let alertTypes = await api.get('/alertstypes');
-        columns.value.find(item => item.field === 'AAName').options = alertTypes.data.map(item => item.name);
-
-        let response = await api.get('/alerts', {
-            params: {
-                afterDate: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-            }
-        });
-
-        items.value = response.data.map(item => {
-            item.date = new Date(item.date);
-            return item;
-        });
-
-    } catch (error) {
-        console.log("🚀 ~ onMounted ~ error:", error);
-    }
+    await loadData();
     loading.value = false;
 
     socket.emit('join-all');
@@ -122,14 +103,12 @@ onMounted(async () => {
             items.value.splice(index, 1);
         }
     });
-    socket.on('deleteMap', (data) => {
-        items.value = items.value.filter(item => item.EID != data.order.EID);
+    socket.on('deleteElement', async (data) => {
+        await loadData();
     })
-    socket.on('updateMapDeleteSector', (data) => {
-        items.value = items.value.filter(item => item.EID != data.order.EID);
-    })
-    socket.on('updateMapDeleteOrder', (data) => {
-        items.value = items.value.filter(item => item.EID != data.order.EID);
+    socket.on('updateMapDeleteElement', async (data) => {
+        if (data.order) items.value = items.value.filter(item => item.EID != data.order.EID);
+        else await loadData();
     })
 
     if (cleanItemsIntervalId) clearInterval(cleanItemsIntervalId);
@@ -143,6 +122,26 @@ onUnmounted(() => {
     clearInterval(cleanItemsIntervalId);
     socket.disconnect();
 })
+
+async function loadData() {
+    try {
+        let alertTypes = await api.get('/alertstypes');
+        columns.value.find(item => item.field === 'AAName').options = alertTypes.data.map(item => item.name);
+
+        let response = await api.get('/alerts', {
+            params: {
+                afterDate: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+            }
+        });
+
+        items.value = response.data.map(item => {
+            item.date = new Date(item.date);
+            return item;
+        });
+    } catch (error) {
+        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych alertów', error));
+    }
+}
 
 function getSeverity(state) {
     switch (state) {

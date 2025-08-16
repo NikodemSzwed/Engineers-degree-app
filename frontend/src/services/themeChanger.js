@@ -1,5 +1,6 @@
 import { updatePreset } from '@primeuix/themes';
 import { useUserStore } from '../stores/userData';
+import { toastHandler } from '../services/toastHandler';
 import chroma from 'chroma-js';
 import api from './api';
 
@@ -67,14 +68,16 @@ function toggleDarkMode(state = false) {
     userData.personalSettings.darkMode = state;
 }
 
-async function saveTheme() {
+async function saveTheme(toastService = null) {
     const userData = useUserStore();
     try {
         await api.put(`/users/` + userData.id, {
             PersonalSettings_json: JSON.stringify(userData.personalSettings),
         });
     } catch (error) {
-        console.log(error);
+        console.error(error);
+        if (toastService)
+            toastService.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się zapisać motywu.', error));
     }
 }
 
@@ -136,5 +139,5 @@ function generateComplementaryColors(baseColor, count) {
 }
 
 export { saveTheme, loadTheme, loadDefaultTheme };
-export { changePrimaryColor, toggleDarkMode };
+export { changePrimaryColor, changePrimaryColorToCustom, toggleDarkMode };
 export { blendColors, hexToRgbaString, rgbToHexString, generateComplementaryColors };

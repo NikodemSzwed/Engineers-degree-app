@@ -28,6 +28,10 @@ import { ref, onMounted } from 'vue';
 import api from '@/services/api';
 import Chart from 'primevue/chart';
 import { blendColors } from '../../../services/themeChanger';
+import { useToast } from 'primevue';
+import { toastHandler } from '../../../services/toastHandler';
+
+const toast = useToast();
 
 const dataMatrix = ref();
 const chartData = ref();
@@ -85,7 +89,7 @@ onMounted(async () => {
         }
         // console.log("🚀 ~ onMounted ~ dataMatrix.value:", dataMatrix.value)
     } catch (error) {
-        console.log(error);
+        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych.', error));
     }
 
     chartData.value = setChartData();

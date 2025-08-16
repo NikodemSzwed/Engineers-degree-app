@@ -36,12 +36,12 @@ export async function login(login, password) {
         await router.push({ path: '/dashboard' });
     } catch (error) {
         console.log('Login failed', error);
-        throw new Error('Zalogowanie się nie powiodło. Powód: ' + error.response.data.error);
+        throw error;
     }
 }
 
-export async function logout() {
-    // await saveUserData();
+export async function logout(safeLogout = false) {
+    if (safeLogout) await saveUserData();
     try {
         await api.post('/users/logout');
     } catch (error) {

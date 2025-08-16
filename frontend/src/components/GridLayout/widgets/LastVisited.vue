@@ -12,7 +12,6 @@
 
 <script>
 import getSourceFileName from '@/services/getAndGeneralizeNameOfFiles';
-import api from '../../../services/api';
 import { saveUserData } from '../../../services/authFunctions';
 
 export const widgetMeta = {

@@ -1,6 +1,5 @@
 <template>
     <div>
-        <Toast />
         <Card :pt="{ body: 'p-2 lg:p-5' }">
             <template #content>
                 <DataTable :items="items" :columns="columns" :advancedInteractionsAvailable="true"
@@ -20,14 +19,11 @@
             <ObjectView :item="showItem" :fieldMap="fieldMap" :complexFieldsColumns="complexFieldsColumns"></ObjectView>
         </Dialog>
     </div>
-
-
 </template>
 
 <script setup>
 import { onMounted, ref } from 'vue';
 import { useToast } from "primevue/usetoast";
-import Toast from 'primevue/toast';
 import Card from 'primevue/card';
 import Dialog from 'primevue/dialog';
 import DataTable from '../components/DataTable/DataTable.vue';
@@ -292,10 +288,6 @@ async function deleteItem(item) {
 
     try {
         let index = items.value.indexOf(item);
-        if (index == -1) {
-            toast.add(toastHandler('warn', 'Nie wybrano użytkownika', 'Wybierz użytkownika którego chcesz usunąć'));
-            return;
-        }
 
         await api.delete(mainPath + '/' + item[mainKey]);
         items.value.splice(index, 1);

@@ -252,8 +252,8 @@ async function seed() {
         ]);
 
         let orders = generateOrders(9, 36, 1000);
-        // await MapsAndElements.bulkCreate(orders[0]);
-        // await Orders.bulkCreate(orders[1]);
+        await MapsAndElements.bulkCreate(orders[0]);
+        await Orders.bulkCreate(orders[1]);
 
         await AlertsTypes.bulkCreate([
             { AAID: 1, name: 'Brak elementu' },
@@ -271,7 +271,7 @@ async function seed() {
             { AAID: 2, EID: 3, State: 1, date: new Date('2024-11-23 18:12:39') },
             { AAID: 3, EID: 2, State: 0, date: new Date('2024-11-23 18:12:39') },
         ]);
-        // await Alerts.bulkCreate(generateAlerts(26, 50));
+        await Alerts.bulkCreate(generateAlerts(26, 50));
 
         await ATtoETAssignment.bulkCreate([
             { AAID: 1, ETID: 2 },

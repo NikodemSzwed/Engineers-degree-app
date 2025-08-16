@@ -1,5 +1,6 @@
 <template>
     <div class="flex h-screen w-full overflow-hidden">
+        <Toast />
         <Drawer v-model:visible="sidebarVisible" class="w-64">
             <template #header> Wearhouse Logistics </template>
             <div class="flex h-full flex-col justify-between">
@@ -68,6 +69,11 @@ import { logout } from '../services/authFunctions';
 import { onMounted } from 'vue';
 import { loadTheme, loadDefaultTheme } from '../services/themeChanger';
 import api from '../services/api';
+import { toastHandler } from '../services/toastHandler';
+import { Toast } from 'primevue';
+import { useToast } from 'primevue';
+
+const toast = useToast();
 
 const sidebarVisible = ref(false);
 const userData = useUserStore();
@@ -104,7 +110,7 @@ const items = ref([
         label: 'Wyloguj',
         icon: 'pi pi-sign-out',
         command: () => {
-            logout();
+            logout(true);
         },
     },
 ]);
@@ -120,6 +126,7 @@ onMounted(async () => {
 
     } catch (error) {
         console.log('Refresh failed');
+        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się odnowić sesji.', error));
         loadDefaultTheme();
     }
 });

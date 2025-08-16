@@ -101,7 +101,7 @@ router.beforeEach(async to => {
 
         return true;
     } catch (error) {
-        if (error.response.status === 401) {
+        if (error.response?.status === 401) {
             console.log('Unauthorized');
             await logout();
         } else console.error(error);

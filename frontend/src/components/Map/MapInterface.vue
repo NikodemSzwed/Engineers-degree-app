@@ -6,7 +6,7 @@
                     <div class="flex flex-row justify-between">
                         <div class="flex items-center justify-center" :class="{ 'w-full': advancedViewAvailable }">
                             <span v-if="!editAvailable || mode.value == 'view'" class="font-bold text-lg">Mapa: {{ name
-                            }}</span>
+                                }}</span>
                             <div v-if="editAvailable && mode.value != 'view'"
                                 class="w-full flex justify-between items-center">
                                 <FloatLabel variant="on">
@@ -56,7 +56,7 @@
 
                         <FloatLabel variant="on" v-if="mode.value == 'view'">
                             <InputText fluid v-model="search" id="on_label_search"></InputText>
-                            <label :for="'on_label_search'">Wyszukaj</label>
+                            <label :for="'on_label_search'">Wyszukaj po sektorze lub zleceniu</label>
                         </FloatLabel>
                         <FloatLabel variant="on" v-if="mode.value != 'view'">
                             <Select fluid :options="layers" v-model="choosenEditLayer" id="on_label_chooseLayer"
@@ -298,6 +298,7 @@ function getMapEID() {
 
 function save() {
     const features = map.value?.getAllFeatures();
+    console.log("🚀 ~ save ~ features:", features)
 
     const operationData = {
         add: [],
@@ -345,11 +346,10 @@ function save() {
             )
         });
 
-        operationData.delete = features.deletedFeatures.map((f) => f.customData.EID);
+        operationData.delete = features.deletedFeatures.filter((f) => f.customData.EID).map((f) => f.customData.EID);
     }
 
     emit('save', operationData);
-
 }
 
 watch(child1ManualHeightControl, (value) => {

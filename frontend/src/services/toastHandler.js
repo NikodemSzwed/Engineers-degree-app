@@ -1,13 +1,21 @@
 export function toastHandler(severity, summary, detail, error = undefined) {
     let detailMsg = detail;
+    console.log('🚀 ~ toastHandler ~ error:', error);
     if (error) {
+        let reason;
         if (error.name === 'AxiosError') {
-            detailMsg = detailMsg + ' Powód: ' + error.response.data.error;
+            reason = error.response?.data?.error || 'Brak odpowiedzi od serwera';
+            if (error.response?.data?.details) {
+                if (reason.endsWith('.') || reason.endsWith('!')) reason += ' ';
+                else reason += '. ';
+                reason += +error.response?.data?.details;
+            }
         } else if (error.message) {
-            detailMsg = detailMsg + ' Powód: ' + error.message;
+            reason = error.message;
         } else {
-            detailMsg = detailMsg + ' Powód: ' + error;
+            reason = error;
         }
+        detailMsg = detailMsg + ' Powód: ' + reason;
         console.error('Error additional information: ', error);
     }
     let life = 2000;

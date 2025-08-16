@@ -1,11 +1,25 @@
 <template>
     <div>
-        <Toast />
         <Card :pt="{ body: 'p-2 lg:p-5' }">
             <template #content>
                 <DataTable :items="items" :columns="columns" :advancedFiltersAvailable="true" :showInteractions="true"
                     :loading="loading" @addItem="addItem" @editItem="editItem" @deleteItem="deleteItem"
                     @showAdvancedObjectView="showAdvancedObjectView">
+                    <template #body-allowMapEdit="{ data }">
+                        {{ data.allowMapEdit ? 'Tak' : 'Nie' }}
+                    </template>
+                    <template #filter-allowMapEdit="{ filterModel }">
+                        <MultiSelect v-model="filterModel.value" :options="[true, false]" placeholder="Wybierz">
+                            <template #value="slotProps">
+                                <span v-for="(val, idx) in slotProps.value" :key="idx">
+                                    {{ val ? 'Tak' : 'Nie' }}<span v-if="idx < slotProps.value.length - 1">, </span>
+                                </span>
+                            </template>
+                            <template #option="slotProps">
+                                {{ slotProps.option ? 'Tak' : 'Nie' }}
+                            </template>
+                        </MultiSelect>
+                    </template>
                 </DataTable>
             </template>
         </Card>
@@ -34,17 +48,15 @@
             <ObjectView :item="showItem" :fieldMap="fieldMap" :complexFieldsColumns="complexFieldsColumns"></ObjectView>
         </Dialog>
     </div>
-
-
 </template>
 
 <script setup>
 import { onMounted, ref } from 'vue';
+import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
 import { useToast } from "primevue/usetoast";
-import Toast from 'primevue/toast';
 import Card from 'primevue/card';
 import Dialog from 'primevue/dialog';
-import { ToggleSwitch } from 'primevue';
+import { ToggleSwitch, MultiSelect } from 'primevue';
 import DataTable from '../components/DataTable/DataTable.vue';
 import api from '../services/api';
 import Form from '../components/Form/Form.vue';
@@ -61,7 +73,10 @@ const advancedObjectViewVisible = ref(false);
 const showItem = ref({});
 const fieldMap = ref({
     name: { label: 'Nazwa grupy' },
-    allowMapEdit: { label: 'Zezwól na edycję przypisanych map' },
+    allowMapEdit: {
+        label: 'Zezwól na edycję przypisanych map',
+        boolean: true
+    },
     Users: { label: 'Członkowie grupy' },
     MapsAndElements: { label: 'Dostęp do map' }
 });
@@ -142,11 +157,20 @@ const addItemFields = ref([
 
 const editItemFields = ref(addItemFields.value);
 
-
 const columns = ref([
     { label: 'GID', field: 'GID', type: 'numeric', dataKey: true, show: false },
     { label: 'Nazwa', field: 'name', type: 'text', addToGlobalFilter: true },
-    { label: 'Zezwól na edycję przypisanych map', field: 'allowMapEdit', type: 'text' },
+    {
+        label: 'Zezwól na edycję przypisanych map', field: 'allowMapEdit', type: 'any',
+        overrideBodyTemplate: true,
+        overrideFilterTemplate: true,
+        colProps: {
+            showFilterMatchModes: false,
+            showFilterOperator: false,
+            showAddButton: false,
+        },
+        overrideFilter: { operator: FilterOperator.AND, constraints: [{ value: null, matchMode: FilterMatchMode.IN }] }
+    },
 ])
 
 const loading = ref(true);
@@ -171,7 +195,7 @@ onMounted(async () => {
         items.value = (await groups).data;
         console.log("🚀 ~ items.value:", items.value)
     } catch (error) {
-        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych.'));
+        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych.', error));
     }
     loading.value = false;
 })
@@ -197,17 +221,16 @@ async function addItemSave(values) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się dodać grupy', error));
     }
 
-
     addItemDialogVisible.value = false;
 }
-
-
 
 async function editItem(item) {
     if (!item) {
         toast.add(toastHandler('warn', 'Nie wybrano grupy', 'Wybierz grupę którą chcesz zmodyfikować'));
         return;
     }
+
+    initialValues.value = {};
 
     try {
         let response = await api.get(mainPath + '/' + item[mainKey]);
@@ -222,13 +245,10 @@ async function editItem(item) {
         else editItemFields.value = addItemFields.value;
 
         initialValues.value = values;
-
+        editItemDialogVisible.value = true;
     } catch (error) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych grupy', error));
     }
-
-    editItemDialogVisible.value = true;
-
 }
 
 async function editItemSave(values) {
@@ -265,13 +285,9 @@ async function deleteItem(item) {
     }
 
     try {
-        let index = items.value.indexOf(item);
-        if (index == -1) {
-            toast.add(toastHandler('warn', 'Nie wybrano grupy', 'Wybierz grupę którą chcesz usunąć'));
-            return;
-        }
-
         await api.delete(mainPath + '/' + item[mainKey]);
+
+        let index = items.value.indexOf(item);
         items.value.splice(index, 1);
         toast.add(toastHandler('success', 'Usunięto grupę', 'Pomyślnie usunięto grupę'));
     } catch (error) {
@@ -288,8 +304,6 @@ async function showAdvancedObjectView(data) {
     } catch (error) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych.', error));
     }
-
-
 }
 
 </script>

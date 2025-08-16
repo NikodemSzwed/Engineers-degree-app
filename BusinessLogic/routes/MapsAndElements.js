@@ -75,6 +75,7 @@ router.get('/:id', async (req, res) => {
 
         const rawData = await db.query(query, {
             replacements: { EID: req.params.id, maps: allowedMaps },
+
             type: db.QueryTypes.SELECT,
         });
 
@@ -233,6 +234,16 @@ router.delete('/:id', async (req, res) => {
             return res.status(404).json({ error: 'Element not found' });
         } else if (deleteElement.ETID == 1 && !req.decodedToken.admin) {
             return res.status(403).json({ error: 'You are not allowed to delete maps' });
+        }
+
+        let otherMapExists = await MapsAndElements.count({
+            where: {
+                ETID: 1,
+                EID: { [Op.not]: deleteElement.EID },
+            },
+        });
+        if (otherMapExists == 0) {
+            return res.status(403).json({ error: 'Cannot delete last map' });
         }
 
         let elements = await findObjectAndParents(deleteElement.EID);

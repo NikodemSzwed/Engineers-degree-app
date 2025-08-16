@@ -1,6 +1,5 @@
 <template>
     <div>
-        <Toast />
         <Card :pt="{ body: 'p-2 lg:p-5' }">
             <template #content>
                 <DataTable :items="items" :columns="columns" :advancedFiltersAvailable="true" :showInteractions="true"
@@ -42,7 +41,6 @@
 <script setup>
 import { onMounted, ref } from 'vue';
 import { useToast } from "primevue/usetoast";
-import Toast from 'primevue/toast';
 import Card from 'primevue/card';
 import Dialog from 'primevue/dialog';
 import DataTable from '../components/DataTable/DataTable.vue';

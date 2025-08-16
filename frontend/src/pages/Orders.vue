@@ -1,6 +1,5 @@
 <template>
     <div>
-        <Toast />
         <Card :pt="{ body: 'p-2 lg:p-5' }">
             <template #content>
                 <DataTable :items="items" :columns="columns" :advancedFiltersAvailable="true" :showInteractions="true"
@@ -51,7 +50,6 @@
                             fluid :invalid="showError" />
                         <label :for="'label' + field.name">{{ field.label }}</label>
                     </FloatLabel>
-
                     <FormField v-slot="{ id, name, value, onInput, invalid, errors }" :name="field.name"
                         :initialValue="field.initialValue" class="flex flex-col gap-1" :resolver="field.resolver">
                         <MapInterface v-if="showMap" :data="chosenMapData" :id="id" :name="name" :value="value"
@@ -64,10 +62,8 @@
                             {{(() => { showError = false })()}}
                         </div>
                     </FormField>
-
                 </template>
             </Form>
-
         </Dialog>
         <Dialog v-model:visible="editItemDialogVisible" header="Edytuj zlecenie" class="w-11/12 lg:w-1/2" modal>
             <Form :initial-values="initialValues" :fields="editItemFields" @submit="editItemSave">
@@ -93,7 +89,6 @@
                             fluid :invalid="showError" />
                         <label :for="'label' + field.name">{{ field.label }}</label>
                     </FloatLabel>
-
                     <FormField v-slot="{ id, name, value, onInput, invalid, errors }" :name="field.name"
                         :initialValue="field.initialValue" class="flex flex-col gap-1" :resolver="field.resolver">
                         <MapInterface v-if="showMap" :data="chosenMapData" :id="id" :name="name" :value="value"
@@ -106,7 +101,6 @@
                             {{(() => { showError = false })()}}
                         </div>
                     </FormField>
-
                 </template>
             </Form>
         </Dialog>
@@ -116,15 +110,12 @@
             <MapInterface v-if="showMap" :data="chosenMapData" ref="mapInterface" class="mt-3 min-h-[40vh]" />
         </Dialog>
     </div>
-
-
 </template>
 
 <script setup>
 import { onMounted, ref, watch } from 'vue';
 import { useToast } from "primevue/usetoast";
 import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
-import Toast from 'primevue/toast';
 import Card from 'primevue/card';
 import Dialog from 'primevue/dialog';
 import DataTable from '../components/DataTable/DataTable.vue';
@@ -135,7 +126,6 @@ import { toastHandler } from '../services/toastHandler';
 import { MultiSelect, Tag, Select, FloatLabel, Message } from 'primevue';
 import MapInterface from '../components/Map/MapInterface.vue';
 import { FormField } from '@primevue/forms';
-
 
 const toast = useToast();
 
@@ -249,7 +239,6 @@ const addItemFields = ref([
 ]);
 
 const editItemFields = ref(addItemFields.value);
-
 
 const columns = ref([
     { label: 'OID', field: 'OID', type: 'numeric', dataKey: true, show: false },
@@ -414,10 +403,6 @@ async function deleteItem(item) {
 
     try {
         let index = items.value.indexOf(item);
-        if (index == -1) {
-            toast.add(toastHandler('warn', 'Nie wybrano zlecenia', 'Wybierz zlecenie który chcesz usunąć'));
-            return;
-        }
 
         await api.delete(mainPath + '/' + item[mainKey]);
         items.value.splice(index, 1);
@@ -448,9 +433,6 @@ async function showAdvancedObjectView(data) {
     } catch (error) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych.', error));
     }
-
-
-
 }
 
 function getSeverity(state) {

@@ -1,6 +1,5 @@
 <template>
     <div>
-        <Toast />
         <Card :pt="{ body: 'p-2 lg:p-5' }">
             <template #content>
                 <DataTable :items="items" :columns="columns" :advancedFiltersAvailable="true" :showInteractions="true"
@@ -27,7 +26,6 @@
 <script setup>
 import { onMounted, ref } from 'vue';
 import { useToast } from "primevue/usetoast";
-import Toast from 'primevue/toast';
 import Card from 'primevue/card';
 import Dialog from 'primevue/dialog';
 import DataTable from '../components/DataTable/DataTable.vue';
@@ -99,7 +97,6 @@ const addItemFields = ref([
 
 const editItemFields = ref(addItemFields.value);
 
-
 const columns = ref([
     { label: 'AAID', field: 'AAID', type: 'numeric', dataKey: true, show: false },
     { label: 'Nazwa', field: 'name', type: 'text', addToGlobalFilter: true },
@@ -146,8 +143,6 @@ async function addItemSave(values) {
     addItemDialogVisible.value = false;
 }
 
-
-
 async function editItem(item) {
     if (!item) {
         toast.add(toastHandler('warn', 'Nie wybrano typu alertu', 'Wybierz typ alertu który chcesz zmodyfikować'));
@@ -162,13 +157,10 @@ async function editItem(item) {
         let values = { ...response.data, ETIDs };
 
         initialValues.value = values;
-
+        editItemDialogVisible.value = true;
     } catch (error) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych typu alertu.', error));
     }
-
-    editItemDialogVisible.value = true;
-
 }
 
 async function editItemSave(values) {
@@ -203,10 +195,6 @@ async function deleteItem(item) {
 
     try {
         let index = items.value.indexOf(item);
-        if (index == -1) {
-            toast.add(toastHandler('warn', 'Nie wybrano typu alertu', 'Wybierz typ alertu który chcesz usunąć'));
-            return;
-        }
 
         await api.delete(mainPath + '/' + item[mainKey]);
         items.value.splice(index, 1);
@@ -225,8 +213,6 @@ async function showAdvancedObjectView(data) {
     } catch (error) {
         toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się pobrać danych.', error));
     }
-
-
 }
 
 </script>

@@ -20,6 +20,7 @@ import { useUserStore } from '../../stores/userData';
 import { hexToRgbaString, blendColors, generateComplementaryColors } from '../../services/themeChanger';
 import { fitMapToContainer, setShapeToRectangle, toggleLayerVisibility, simplifyPolygon, setShapePointsToClosestExtentBorder, snapFeature, getPointerDeltaFunction, generateResolutions } from './mapUtils';
 import Collection from 'ol/Collection';
+import { set } from 'date-fns';
 
 const userData = useUserStore();
 
@@ -283,6 +284,7 @@ watch(localSearchName, (search) => {
 
     allLayers.get('physical')[0].getSource().getFeatures().forEach((feature) => {
 
+
         const name = feature.customData?.name?.toLowerCase() || '';
         let isMatch = lowerSearch && name.includes(lowerSearch);
 
@@ -295,6 +297,7 @@ watch(localSearchName, (search) => {
         }
 
         if (isMatch) {
+            console.log("🚀 ~ feature:", feature)
             let style = highlightStyle.clone();
             style.getText().setText(feature.customData?.name || '');
             feature.setStyle(style);
@@ -363,6 +366,11 @@ function copySelectedShape() {
             alerts: [],
         }
         allLayers.get(props.editLayer.value)[0].getSource().addFeature(newFeature);
+        newFeature.setStyle(null);
+
+        allLayers.get(props.editLayer.value)[1].get('select').getFeatures().clear();
+        if (currentMode.value === 'modifyPolygon') allLayers.get(props.editLayer.value)[1].get('select').getFeatures().push(newFeature);
+        selected.value = newFeature
     }
 }
 
