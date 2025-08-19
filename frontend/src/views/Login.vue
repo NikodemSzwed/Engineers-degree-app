@@ -1,25 +1,29 @@
 <template>
     <Toast></Toast>
-    <div class="flex h-screen w-screen flex-col items-center justify-center bg-emphasis">
-        <div class="w-full flex justify-end pt-5 pr-5">
-            <div class="w-fit h-fit shadow bg-[var(--p-card-background)] p-2 rounded-md flex items-center justify-center cursor-pointer"
-                @click="darkModeChange">
+    <div class="bg-emphasis flex h-screen w-screen flex-col items-center justify-center">
+        <div class="flex w-full justify-end pt-5 pr-5">
+            <div
+                class="flex h-fit w-fit cursor-pointer items-center justify-center rounded-md bg-[var(--p-card-background)] p-2 shadow"
+                @click="darkModeChange"
+            >
                 <i v-if="!darkMode" class="pi pi-sun text-xl"></i>
                 <i v-else class="pi pi-moon text-xl"></i>
             </div>
         </div>
-        <div class="flex flex-1 items-center justify-center w-full">
+        <div class="flex w-full flex-1 items-center justify-center">
             <Card class="h-fit w-fit">
                 <template #title>
-                    <div class="w-full flex justify-center items-center gap-3">
-                        <div class="w-12 h-12 shadow dark:bg-emphasis p-2 rounded-md">
+                    <div class="flex w-full items-center justify-center gap-3">
+                        <div class="dark:bg-emphasis h-12 w-12 rounded-md p-2 shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132.292 132.292">
                                 <defs>
                                     <path id="a" d="M17.657 63.062h467.08V500H17.657z" />
                                 </defs>
-                                <path :style="{ fill: color, stroke: color }"
+                                <path
+                                    :style="{ fill: color, stroke: color }"
                                     d="M25.36 14.051 8.337 38.523l25.885 79.83 15.783-18.465L66.145 61.2l16.141 38.688 15.784 18.465 25.884-79.83-17.023-24.472-15.148 57.03-25.637-56.903L41.53 71.463 25.36 14.051z"
-                                    style="stroke-width:.670999" />
+                                    style="stroke-width: 0.670999"
+                                />
                             </svg>
                         </div>
 
@@ -28,21 +32,20 @@
                 </template>
                 <template #content>
                     <div class="flex flex-col items-center gap-3 px-5 pt-5">
-                        <div class="flex flex-col items-center gap-1 text-sm text-surface-500">
+                        <div class="text-surface-500 flex flex-col items-center gap-1 text-sm">
                             <div>Witaj w systemie Warehouse Logistics.</div>
-                            <div> Zaloguj się aby przejść dalej!</div>
+                            <div>Zaloguj się aby przejść dalej!</div>
                         </div>
 
-                        <Form :fields="loginFields" :submitLabel="'Zaloguj'" @submit="onFormSubmit">
-                        </Form>
+                        <Form :fields="loginFields" :submitLabel="'Zaloguj'" @submit="onFormSubmit"> </Form>
 
-
-                        <div class="py-3 flex flex-col items-center text-sm text-primary-500 cursor-pointer"
-                            @click="registerDevice">
+                        <div
+                            class="text-primary-500 flex cursor-pointer flex-col items-center py-3 text-sm"
+                            @click="registerDevice"
+                        >
                             <div>Zarejestruj urządzenie jako monitor</div>
                         </div>
                     </div>
-
                 </template>
             </Card>
         </div>
@@ -51,92 +54,91 @@
             &copy; {{ new Date().getFullYear() }} Warehouse Logistics - Nikodem Szwed.
         </footer>
     </div>
-
-
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import Button from 'primevue/button';
-import { login } from '../services/authFunctions.js';
-import Card from 'primevue/card';
-import Form from '../components/Form/Form.vue';
-import Toast from 'primevue/toast';
-import { useToast } from 'primevue';
-import { toggleDarkMode } from '../services/themeChanger.js';
-import { useRouter } from 'vue-router';
-import api from '../services/api.js';
-import { loadDefaultTheme } from '../services/themeChanger';
-import { toastHandler } from '../services/toastHandler.js';
+    import { ref, onMounted } from 'vue';
+    import Button from 'primevue/button';
+    import { login } from '../services/authFunctions.js';
+    import Card from 'primevue/card';
+    import Form from '../components/Form/Form.vue';
+    import Toast from 'primevue/toast';
+    import { useToast } from 'primevue';
+    import { toggleDarkMode } from '../services/themeChanger.js';
+    import { useRouter } from 'vue-router';
+    import api from '../services/api.js';
+    import { loadDefaultTheme } from '../services/themeChanger';
+    import { toastHandler } from '../services/toastHandler.js';
 
-const color = ref('var(--color-primary)');
-const toast = useToast();
-const router = useRouter();
+    const color = ref('var(--color-primary)');
+    const toast = useToast();
+    const router = useRouter();
 
-const darkMode = ref(document.documentElement.classList.contains('dark'));
+    const darkMode = ref(document.documentElement.classList.contains('dark'));
 
-const loginFields = ref([
-    {
-        name: 'login',
-        label: 'Login',
-        component: 'InputText',
-        componentOptions: {
-            type: 'text',
+    const loginFields = ref([
+        {
+            name: 'login',
+            label: 'Login',
+            component: 'InputText',
+            componentOptions: {
+                type: 'text',
+            },
+            conditions: [
+                {
+                    check: 'required',
+                    message: 'Login jest wymagany.',
+                },
+            ],
         },
-        conditions: [{
-            check: "required",
-            message: "Login jest wymagany."
-        }]
-    },
-    {
-        name: 'password',
-        label: 'Hasło',
-        component: 'Password',
-        componentOptions: {
-            type: 'password',
-            toggleMask: true,
-            feedback: false
+        {
+            name: 'password',
+            label: 'Hasło',
+            component: 'Password',
+            componentOptions: {
+                type: 'password',
+                toggleMask: true,
+                feedback: false,
+            },
+            conditions: [
+                {
+                    check: 'required',
+                    message: 'Hasło jest wymagane.',
+                },
+            ],
         },
-        conditions: [{
-            check: "required",
-            message: "Hasło jest wymagane."
-        }]
-    }
-]);
+    ]);
 
-async function onFormSubmit(values) {
-    try {
-        await login(values.newObject.states.login.value, values.newObject.states.password.value);
-    } catch (error) {
-        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się zalogować.', error));
+    async function onFormSubmit(values) {
+        try {
+            await login(values.newObject.states.login.value, values.newObject.states.password.value);
+        } catch (error) {
+            toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się zalogować.', error));
+        }
     }
 
-}
-
-function darkModeChange() {
-    darkMode.value = !darkMode.value;
-    toggleDarkMode(darkMode.value);
-}
-
-async function registerDevice() {
-    try {
-        let response = await api.post('/displays/register');
-
-        localStorage.setItem('displayUUID', response.data.UUID);
-    } catch (error) {
-        toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się zarejestrować urządzenia.', error));
+    function darkModeChange() {
+        darkMode.value = !darkMode.value;
+        toggleDarkMode(darkMode.value);
     }
 
-    router.push('/Display');
-}
+    async function registerDevice() {
+        try {
+            let response = await api.post('/displays/register');
 
-onMounted(() => {
-    loadDefaultTheme();
+            localStorage.setItem('displayUUID', response.data.UUID);
+        } catch (error) {
+            toast.add(toastHandler('error', 'Wystąpił problem', 'Nie udało się zarejestrować urządzenia.', error));
+        }
 
-    if (localStorage.getItem('displayUUID')) {
-        console.log("🚀 ~ localStorage.getItem('displayUUID'):", localStorage.getItem('displayUUID'))
         router.push('/Display');
     }
 
-});
+    onMounted(() => {
+        loadDefaultTheme();
+
+        if (localStorage.getItem('displayUUID')) {
+            router.push('/Display');
+        }
+    });
 </script>

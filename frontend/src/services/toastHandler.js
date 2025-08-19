@@ -1,6 +1,5 @@
 export function toastHandler(severity, summary, detail, error = undefined) {
     let detailMsg = detail;
-    console.log('🚀 ~ toastHandler ~ error:', error);
     if (error) {
         let reason;
         if (error.name === 'AxiosError') {

@@ -18,5 +18,5 @@
 </template>
 
 <script setup>
-import Button from 'primevue/button';
+    import Button from 'primevue/button';
 </script>

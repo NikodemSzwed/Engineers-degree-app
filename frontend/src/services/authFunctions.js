@@ -15,7 +15,7 @@ export async function saveUserData() {
             PersonalSettings_json: JSON.stringify(userData.personalSettings),
         });
     } catch (error) {
-        console.log(error);
+        console.error(error);
     }
 }
 
@@ -35,7 +35,7 @@ export async function login(login, password) {
         startAuthRefresh();
         await router.push({ path: '/dashboard' });
     } catch (error) {
-        console.log('Login failed', error);
+        console.error('Login failed', error);
         throw error;
     }
 }
@@ -45,7 +45,7 @@ export async function logout(safeLogout = false) {
     try {
         await api.post('/users/logout');
     } catch (error) {
-        console.log('Logout failed', error.response.data);
+        console.error('Logout failed', error.response.data);
     }
     const userData = useUserStore();
     userData.clearUser();

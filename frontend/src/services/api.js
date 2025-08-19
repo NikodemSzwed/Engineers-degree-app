@@ -19,12 +19,12 @@ api.interceptors.response.use(
             const { status } = error.response;
 
             if (status === 401) {
-                console.log('Unauthorized api call');
+                console.warn('Unauthorized api call');
                 await logout();
             }
 
             if (status === 403) {
-                console.log('Forbidden');
+                console.warn('Forbidden');
             }
         } else if (error.request) {
             console.error('No response from server');
