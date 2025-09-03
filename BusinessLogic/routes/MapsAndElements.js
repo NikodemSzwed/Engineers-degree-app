@@ -20,7 +20,7 @@ router.get('/', async (req, res) => {
         });
         res.json(maps);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to retrieve maps', details: error.message });
+        res.status(500).json({ error: 'Nie udało się pobrać map', details: error.message });
     }
 });
 
@@ -35,7 +35,7 @@ router.get('/sectors', async (req, res) => {
         });
         res.json(maps);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to retrieve maps', details: error.message });
+        res.status(500).json({ error: 'Nie udało się pobrać sektorów', details: error.message });
     }
 });
 
@@ -56,7 +56,7 @@ router.get('/singleObject/:id', async (req, res) => {
         });
         res.json(maps);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to retrieve maps', details: error.message });
+        res.status(500).json({ error: 'Nie udało się pobrać obiektu', details: error.message });
     }
 });
 
@@ -83,7 +83,7 @@ router.get('/:id', async (req, res) => {
 
         res.json(elements);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to retrieve map elements', details: error.message });
+        res.status(500).json({ error: 'Nie udało się pobrać elementów', details: error.message });
     }
 });
 
@@ -91,11 +91,11 @@ router.post('/', async (req, res) => {
     let transaction;
     try {
         if (req.body.ETID == 1 && !req.decodedToken.admin) {
-            throw new Error('You are not allowed to create maps');
+            throw new Error('Nie masz uprawnień do tworzenia map');
         }
 
         if (req.body.ETID != 1 && !req.body.ParentEID) {
-            throw new Error('Wrong definition of parent element - ParentEID is required');
+            throw new Error('Zła definicja elementu nadrzędnego - ParentEID jest wymagane');
         }
 
         transaction = await db.transaction();
@@ -115,7 +115,6 @@ router.post('/', async (req, res) => {
 
         await transaction.commit();
         transaction = null;
-        res.status(201).json(newElement);
 
         let elements = await findObjectAndParents(newElement.EID);
         elements.forEach(element => {
@@ -132,11 +131,11 @@ router.post('/', async (req, res) => {
 
             io.to('EID-' + element.EID).emit(type, newElement);
         });
+
+        res.status(201).json(newElement);
     } catch (error) {
-        if (transaction) {
-            await transaction.rollback();
-            res.status(500).json({ error: 'Failed to create element', details: error.message });
-        } else console.error(error);
+        if (transaction) await transaction.rollback();
+        res.status(500).json({ error: 'Nie udało się utworzyć elementu', details: error.message });
     }
 });
 
@@ -170,7 +169,7 @@ router.put('/:id', async (req, res) => {
         const allowence = rawData.map(row => MapsAndElements.build(row, { isNewRecord: false }));
 
         if (allowence.length > 0) {
-            return res.status(403).json({ error: 'You are not allowed to update some or all of those elements' });
+            return res.status(403).json({ error: 'Nie masz uprawnień do edycji tej mapy lub jej elementów' });
         }
         if (!req.body.ETID || req.body.ETID == 1) delete req.body.ParentEID;
         delete req.body.ETID;
@@ -180,7 +179,6 @@ router.put('/:id', async (req, res) => {
                 EID: req.params.id,
             },
         });
-        res.json(updatedElement);
 
         updatedElement = await MapsAndElements.findByPk(req.params.id);
         let elements = await findObjectAndParents(updatedElement.EID);
@@ -198,8 +196,9 @@ router.put('/:id', async (req, res) => {
 
             io.to('EID-' + element.EID).emit(type, updatedElement);
         });
+        res.json(updatedElement);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to update element', details: error.message });
+        res.status(500).json({ error: 'Nie udało się zaktualizować elementu', details: error.message });
     }
 });
 
@@ -226,14 +225,14 @@ router.delete('/:id', async (req, res) => {
         const allowence = rawData.map(row => MapsAndElements.build(row, { isNewRecord: false }));
 
         if (allowence.length > 0) {
-            return res.status(403).json({ error: 'You are not allowed to delete some or all of those elements' });
+            return res.status(403).json({ error: 'Nie masz uprawnień do usunięcia tej mapy lub jej elementów' });
         }
 
         let deleteElement = await MapsAndElements.findByPk(req.params.id);
         if (!deleteElement) {
-            return res.status(404).json({ error: 'Element not found' });
+            return res.status(404).json({ error: 'Nie znaleziono elementu' });
         } else if (deleteElement.ETID == 1 && !req.decodedToken.admin) {
-            return res.status(403).json({ error: 'You are not allowed to delete maps' });
+            return res.status(403).json({ error: 'Nie masz uprawnień do usuwania map' });
         }
 
         let otherMapExists = await MapsAndElements.count({
@@ -243,7 +242,7 @@ router.delete('/:id', async (req, res) => {
             },
         });
         if (otherMapExists == 0) {
-            return res.status(403).json({ error: 'Cannot delete last map' });
+            return res.status(403).json({ error: 'Nie można usunąć ostatniej mapy' });
         }
 
         let elements = await findObjectAndParents(deleteElement.EID);
@@ -254,7 +253,6 @@ router.delete('/:id', async (req, res) => {
                 [Op.or]: [{ ETID: { [Op.ne]: 1 } }, db.literal(req.decodedToken.admin ? 'true' : 'false')],
             },
         });
-        res.status(204).end();
 
         elements.forEach(element => {
             element = element.dataValues;
@@ -271,8 +269,9 @@ router.delete('/:id', async (req, res) => {
 
             io.to('EID-' + element.EID).emit(type, deleteElement);
         });
+        res.status(204).end();
     } catch (error) {
-        res.status(500).json({ error: 'Failed to delete element', details: error.message });
+        res.status(500).json({ error: 'Nie udało się usunąć elementu', details: error.message });
     }
 });
 

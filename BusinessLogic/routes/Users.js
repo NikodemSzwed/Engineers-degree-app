@@ -11,7 +11,8 @@ const Groups = models.Groups;
 const MapsAndElements = models.MapsAndElements;
 
 router.get('/', async (req, res) => {
-    if (!req.decodedToken.admin) return res.status(403).json({ error: 'Unauthorized: Admin privileges required' });
+    if (!req.decodedToken.admin)
+        return res.status(403).json({ error: 'Brak dostępu: wymagane są uprawnienia administratora' });
 
     try {
         const users = await Users.findAll({
@@ -21,17 +22,18 @@ router.get('/', async (req, res) => {
         });
         res.json(users);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to retrieve users', details: error.message });
+        res.status(500).json({ error: 'Nie udało się pobrać użytkowników', details: error.message });
     }
 });
 
 router.post('/', async (req, res) => {
-    if (!req.decodedToken.admin) return res.status(403).json({ error: 'Unauthorized: Admin privileges required' });
+    if (!req.decodedToken.admin)
+        return res.status(403).json({ error: 'Brak dostępu: wymagane są uprawnienia administratora' });
     const newLogin = req.body.login;
     const existingUser = await Users.findOne({
         where: { login: newLogin },
     });
-    if (existingUser) return res.status(400).json({ error: `User with login '${newLogin}' already exists` });
+    if (existingUser) return res.status(400).json({ error: `Użytkownik z loginem '${newLogin}' już istnieje` });
 
     try {
         const HashPasswd = bcrypt.hashSync(req.body.passwd, 10);
@@ -44,7 +46,7 @@ router.post('/', async (req, res) => {
 
         res.json(newUser);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to create user', details: error.message });
+        res.status(500).json({ error: 'Nie udało się utworzyć użytkownika', details: error.message });
     }
 });
 
@@ -57,13 +59,13 @@ router.post('/login', async (req, res) => {
         });
 
         if (!user) {
-            return res.status(401).json({ error: 'Invalid login or password' });
+            return res.status(401).json({ error: 'Nieprawidłowy login lub hasło' });
         }
 
         const isPasswordValid = bcrypt.compareSync(req.body.passwd, user.passwd);
 
         if (!isPasswordValid) {
-            return res.status(401).json({ error: 'Invalid login or password' });
+            return res.status(401).json({ error: 'Nieprawidłowy login lub hasło' });
         }
 
         const userMaps = await MapsAndElements.findAll({
@@ -85,7 +87,7 @@ router.post('/login', async (req, res) => {
         });
         const userEIDs = userMaps.map(map => map.EID);
         if (userEIDs.length === 0) {
-            throw new Error(`You don't have permission to any maps. Contact the administrator.`);
+            throw new Error(`Nie masz uprawnień do żadnych map. Skontaktuj się z administratorem.`);
         }
 
         const userGroups = await Groups.findAll({
@@ -131,7 +133,7 @@ router.post('/login', async (req, res) => {
             },
         });
     } catch (error) {
-        res.status(401).json({ error: 'Logging error', details: error.message });
+        res.status(401).json({ error: 'Nie udało się zalogować', details: error.message });
     }
 });
 
@@ -140,7 +142,7 @@ router.post('/refresh', async (req, res) => {
         const token = req.cookies['WarehouseLogisticsToken'];
 
         if (!token) {
-            return res.status(401).json({ error: 'Unauthorized' });
+            return res.status(401).json({ error: 'Brak dostępu' });
         }
 
         const decodedToken = getTokenData(token);
@@ -208,17 +210,18 @@ router.post('/refresh', async (req, res) => {
             personalSettings: personalSettings.PersonalSettings_json,
         });
     } catch (error) {
-        res.status(500).json({ error: 'Failed to verify token', details: error.message });
+        res.status(500).json({ error: 'Nie udało się zweryfikować tokenu', details: error.message });
     }
 });
 
 router.post('/logout', async (req, res) => {
     res.clearCookie('WarehouseLogisticsToken');
-    res.status(200).json({ message: 'Logout successful' });
+    res.status(200).json({ message: 'Wylogowano' });
 });
 
 router.get('/:id', async (req, res) => {
-    if (!req.decodedToken.admin) return res.status(403).json({ error: 'Unauthorized: Admin privileges required' });
+    if (!req.decodedToken.admin)
+        return res.status(403).json({ error: 'Brak dostępu: wymagane są uprawnienia administratora' });
 
     try {
         const user = await Users.findOne({
@@ -238,19 +241,21 @@ router.get('/:id', async (req, res) => {
         });
         res.json(user);
     } catch (error) {
-        res.status(404).json({ error: 'User not found', details: error.message });
+        res.status(404).json({ error: 'Nie znaleziono użytkownika', details: error.message });
     }
 });
 
 router.put('/:id', async (req, res) => {
     if (!req.decodedToken.admin && req.decodedToken.UID != req.params.id)
-        return res.status(403).json({ error: 'Unauthorized: Admin privileges required' });
+        return res.status(403).json({ error: 'Brak dostępu: wymagane są uprawnienia administratora' });
 
     try {
         let data = removePKandFieldsNotInModel(req.body, Users);
 
         if (!req.decodedToken.admin && req.decodedToken.UID == req.params.id && data.login) {
-            return res.status(403).json({ error: 'Unauthorized: Admin privileges required to change login' });
+            return res
+                .status(403)
+                .json({ error: 'Brak dostępu: do zmiany loginu wymagane są uprawnienia administratora' });
         }
 
         if (data.passwd) data.passwd = bcrypt.hashSync(data.passwd, 10);
@@ -261,15 +266,17 @@ router.put('/:id', async (req, res) => {
         });
         res.json(updatedUser);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to update user', details: error.message });
+        res.status(500).json({ error: 'Nie udało się zaktualizować użytkownika', details: error.message });
     }
 });
 
 router.delete('/:id', async (req, res) => {
-    if (!req.decodedToken.admin) return res.status(403).json({ error: 'Unauthorized: Admin privileges required' });
+    if (!req.decodedToken.admin)
+        return res.status(403).json({ error: 'Brak dostępu: wymagane są uprawnienia administratora' });
     if (req.params.id == req.decodedToken.UID)
-        return res.status(403).json({ error: 'Unauthorized: Cannot delete yourself' });
-    if (req.params.id == 1) return res.status(403).json({ error: 'Unauthorized: Cannot delete main admin' });
+        return res.status(403).json({ error: 'Brak dostępu: nie możesz usunąć swojego konta' });
+    if (req.params.id == 1)
+        return res.status(403).json({ error: 'Brak dostępu: nie możesz usunąć konta głównego administratora' });
 
     try {
         await Users.destroy({
@@ -279,7 +286,7 @@ router.delete('/:id', async (req, res) => {
         });
         res.status(204).end();
     } catch (error) {
-        res.status(500).json({ error: 'Failed to delete user', details: error.message });
+        res.status(500).json({ error: 'Nie udało się usunąć użytkownika', details: error.message });
     }
 });
 

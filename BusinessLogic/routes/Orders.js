@@ -41,7 +41,9 @@ router.post('/', async (req, res) => {
         let ParentEIDs = [req.body.ParentEID];
 
         if (await allowence(allowedMaps, ParentEIDs)) {
-            return res.status(403).json({ error: 'You are not allowed to check some or all of those elements' });
+            return res
+                .status(403)
+                .json({ error: 'Nie masz uprawnień do sprawdzenia niektórych lub wszystkich elementów' });
         }
         req.body.ETID = 2;
         delete req.body.EID;
@@ -56,11 +58,11 @@ router.post('/', async (req, res) => {
         });
 
         await transaction.commit();
+        transaction = null;
         const order = {
             newOrder,
             newElement,
         };
-        res.json(order);
 
         let elements = await findObjectAndParents(req.body.EID);
         elements.forEach(element => {
@@ -73,13 +75,13 @@ router.post('/', async (req, res) => {
             } else if (element.ETID == 3) {
                 type = 'updateSectorNewOrder';
             }
-            console.log('🚀 ~ type:', type);
 
             io.to('EID-' + element.EID).emit(type, order);
         });
+        res.json(order);
     } catch (error) {
         if (transaction) await transaction.rollback();
-        res.status(500).json({ error: `Failed to create order: ${error}` });
+        res.status(500).json({ error: `Nie udało się utworzyć zlecenia`, details: error.message });
     }
 });
 
@@ -89,7 +91,9 @@ router.get('/by-eid/:eid', async (req, res) => {
         let EIDs = [req.params.eid];
 
         if (await allowence(allowedMaps, EIDs)) {
-            return res.status(403).json({ error: 'You are not allowed to check some or all of those elements' });
+            return res
+                .status(403)
+                .json({ error: 'Nie masz uprawnień do sprawdzenia niektórych lub wszystkich elementów' });
         }
         const order = await Orders.findAll({
             where: {
@@ -103,8 +107,7 @@ router.get('/by-eid/:eid', async (req, res) => {
         });
         res.json(order);
     } catch (error) {
-        console.log('🚀 ~ router.get ~ error:', error);
-        res.status(404).json({ error: 'Order not found' });
+        res.status(404).json({ error: 'Nie znaleziono zlecenia', details: error.message });
     }
 });
 
@@ -113,7 +116,9 @@ router.get('/', async (req, res) => {
         let allowedMaps = getAllowedMaps(req.cookies['WarehouseLogisticsToken']);
 
         if (await allowence(allowedMaps, [])) {
-            return res.status(403).json({ error: 'You are not allowed to check some or all of those elements' });
+            return res
+                .status(403)
+                .json({ error: 'Nie masz uprawnień do sprawdzenia niektórych lub wszystkich elementów' });
         }
 
         const query = `
@@ -139,27 +144,16 @@ router.get('/', async (req, res) => {
             type: db.QueryTypes.SELECT,
         });
 
-        // let order = rawData.map((row) => Orders.build(row, { isNewRecord: false }));
-
         res.json(rawData);
     } catch (error) {
-        res.status(404).json({ error: 'Order not found' });
+        res.status(404).json({ error: 'Nie znaleziono zlecenia', details: error.message });
     }
 });
 
 router.get('/:id', async (req, res) => {
     try {
         let allowedMaps = getAllowedMaps(req.cookies['WarehouseLogisticsToken']);
-        // const orders = await Orders.findByPk(req.params.id, {
-        //     where: {
-        //         OID: req.params.id,
-        //     },
-        //     include: {
-        //         model: MapsAndElements,
-        //         as: 'EID_MapsAndElement',
-        //         required: true,
-        //     },
-        // });
+
         const orders = await Orders.findByPk(req.params.id, {
             attributes: {
                 include: [
@@ -192,12 +186,13 @@ router.get('/:id', async (req, res) => {
         });
 
         if (await allowence(allowedMaps, [orders.EID])) {
-            return res.status(403).json({ error: 'You are not allowed to check some or all of those elements' });
+            return res
+                .status(403)
+                .json({ error: 'Nie masz uprawnień do sprawdzenia niektórych lub wszystkich elementów' });
         }
         res.json(orders);
     } catch (error) {
-        console.log('🚀 ~ router.get ~ error:', error);
-        res.status(500).json({ error: 'Failed to retrieve orders by OID', msg: error });
+        res.status(500).json({ error: 'Nie udało się pobrać zlecenia', details: error.message });
     }
 });
 
@@ -208,12 +203,14 @@ router.put('/:id', async (req, res) => {
 
         const order = await Orders.findByPk(req.params.id);
         if (!order) {
-            return res.status(404).json({ error: 'Order not found' });
+            return res.status(404).json({ error: 'Nie znaleziono zlecenia' });
         }
         EIDFromOrder = [order.EID];
 
         if (await allowence(allowedMaps, EIDFromOrder)) {
-            return res.status(403).json({ error: 'You are not allowed to check some or all of those elements' });
+            return res
+                .status(403)
+                .json({ error: 'Nie masz uprawnień do sprawdzenia niektórych lub wszystkich elementów' });
         }
 
         const orderME = await MapsAndElements.findByPk(order.EID);
@@ -235,10 +232,6 @@ router.put('/:id', async (req, res) => {
 
         await transaction.commit();
         transaction = null;
-        res.json({
-            updatedOrder,
-            updatedMapsFromOrderUpdate,
-        });
 
         let orderElement = await MapsAndElements.findByPk(order.EID);
         const fullOrder = {
@@ -263,12 +256,14 @@ router.put('/:id', async (req, res) => {
 
             io.to('EID-' + element.EID).emit(type, { ...fullOrder, roomEID: element.EID });
         });
+
+        res.json({
+            updatedOrder,
+            updatedMapsFromOrderUpdate,
+        });
     } catch (error) {
-        console.error('🚀 ~ error:', error);
-        if (transaction) {
-            await transaction.rollback();
-            res.status(500).json({ error: 'Failed to update order', msg: error });
-        }
+        if (transaction) await transaction.rollback();
+        res.status(500).json({ error: 'Nie udało się zaktualizować zlecenia', details: error.message });
     }
 });
 
@@ -278,12 +273,14 @@ router.delete('/:id', async (req, res) => {
         transaction = await db.transaction();
         const order = await Orders.findByPk(req.params.id, { transaction });
         if (!order) {
-            return res.status(404).json({ error: 'Order not found' });
+            return res.status(404).json({ error: 'Nie znaleziono zlecenia' });
         }
         let allowedMaps = getAllowedMaps(req.cookies['WarehouseLogisticsToken']);
 
         if (await allowence(allowedMaps, [order.EID])) {
-            return res.status(403).json({ error: 'You are not allowed to check some or all of those elements' });
+            return res
+                .status(403)
+                .json({ error: 'Nie masz uprawnień do sprawdzenia niektórych lub wszystkich elementów' });
         }
 
         const orderElement = await MapsAndElements.findByPk(order.EID);
@@ -297,7 +294,6 @@ router.delete('/:id', async (req, res) => {
             transaction,
         });
         await transaction.commit();
-        res.status(204).json(x);
 
         const fullOrder = {
             order,
@@ -306,7 +302,6 @@ router.delete('/:id', async (req, res) => {
 
         elements.forEach(element => {
             element = element.dataValues;
-            console.log('🚀 ~ element:', element);
 
             let type = 'deleteOrder';
             if (element.ETID == 1) {
@@ -317,10 +312,11 @@ router.delete('/:id', async (req, res) => {
 
             io.to('EID-' + element.EID).emit(type, fullOrder);
         });
+
+        res.status(204).json(x);
     } catch (error) {
         if (transaction) await transaction.rollback();
-        console.log('🚀 ~ router.delete ~ error:', error);
-        res.status(500).json({ error: 'Failed to delete order' });
+        res.status(500).json({ error: 'Nie udało się usunąć zlecenia', details: error.message });
     }
 });
 

@@ -41,13 +41,15 @@ router.post('/', async (req, res) => {
         transaction = await db.transaction();
         let order = await Orders.findByPk(req.body.OID, { transaction });
         if (!order) {
-            return res.status(404).json({ error: 'Order not found' });
+            return res.status(404).json({ error: 'Nie znaleziono zlecenia' });
         }
 
         let EIDs = [order.EID];
 
         if (await allowence(allowedMaps, EIDs)) {
-            return res.status(403).json({ error: 'You are not allowed to create some or all of those elements' });
+            return res
+                .status(403)
+                .json({ error: 'Nie masz uprawnień do tworzenia niektórych lub wszystkich elementów' });
         }
 
         const newDelivery = await Deliveries.create(removePKandFieldsNotInModel(req.body, Deliveries), { transaction });
@@ -56,7 +58,7 @@ router.post('/', async (req, res) => {
         res.json(newDelivery);
     } catch (error) {
         if (transaction) await transaction.rollback();
-        res.status(500).json({ error: 'Failed to create delivery', details: error.message });
+        res.status(500).json({ error: 'Nie udało się utworzyć dostawy', details: error.message });
     }
 });
 
@@ -75,19 +77,21 @@ router.get('/:id', async (req, res) => {
             },
         });
         if (!order) {
-            return res.status(404).json({ error: 'Delivery not found' });
+            return res.status(404).json({ error: 'Nie znaleziono dostawy' });
         }
 
         let EIDs = [order.EID];
 
         if (await allowence(allowedMaps, EIDs)) {
-            return res.status(403).json({ error: 'You are not allowed to create some or all of those elements' });
+            return res
+                .status(403)
+                .json({ error: 'Nie masz uprawnień do sprawdzenia niektórych lub wszystkich elementów' });
         }
 
         const delivery = order.Deliveries[0];
         res.json(delivery);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to retrieve delivery', details: error.message });
+        res.status(500).json({ error: 'Nie udało się pobrać dostawy', details: error.message });
     }
 });
 
@@ -109,13 +113,13 @@ router.put('/:id', async (req, res) => {
             transaction,
         });
         if (!order) {
-            return res.status(404).json({ error: 'Delivery not found' });
+            return res.status(404).json({ error: 'Nie znaleziono dostawy' });
         }
 
         let EIDs = [order.EID];
 
         if (await allowence(allowedMaps, EIDs)) {
-            return res.status(403).json({ error: 'You are not allowed to create some or all of those elements' });
+            return res.status(403).json({ error: 'Nie masz uprawnień do edycji niektórych lub wszystkich elementów' });
         }
         delete req.body.OID;
         let updatedDelivery = await Deliveries.update(removePKandFieldsNotInModel(req.body, Deliveries), {
@@ -129,7 +133,7 @@ router.put('/:id', async (req, res) => {
         res.json(updatedDelivery);
     } catch (error) {
         if (transaction) await transaction.rollback();
-        res.status(500).json({ error: 'Failed to update delivery', details: error.message });
+        res.status(500).json({ error: 'Nie udało się edytować dostawy', details: error.message });
     }
 });
 
@@ -151,13 +155,15 @@ router.delete('/:id', async (req, res) => {
             transaction,
         });
         if (!order) {
-            return res.status(404).json({ error: 'Delivery not found' });
+            return res.status(404).json({ error: 'Nie znaleziono dostawy' });
         }
 
         let EIDs = [order.EID];
 
         if (await allowence(allowedMaps, EIDs)) {
-            return res.status(403).json({ error: 'You are not allowed to create some or all of those elements' });
+            return res
+                .status(403)
+                .json({ error: 'Nie masz uprawnień do usuwania niektórych lub wszystkich elementów' });
         }
 
         await Deliveries.destroy({
@@ -171,7 +177,7 @@ router.delete('/:id', async (req, res) => {
         res.status(204).end();
     } catch (error) {
         if (transaction) await transaction.rollback();
-        res.status(500).json({ error: 'Failed to delete delivery', details: error.message });
+        res.status(500).json({ error: 'Nie udało się usunąć dostawy', details: error.message });
     }
 });
 

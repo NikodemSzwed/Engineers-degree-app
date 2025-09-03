@@ -10,18 +10,20 @@ const Users = models.Users;
 const MapsAndElements = models.MapsAndElements;
 
 router.get('/', async (req, res) => {
-    if (!req.decodedToken.admin) return res.status(403).json({ error: 'Unauthorized: Admin privileges required' });
+    if (!req.decodedToken.admin)
+        return res.status(403).json({ error: 'Brak dostępu: wymagane są uprawnienia administratora' });
 
     try {
         const groups = await Groups.findAll();
         res.json(groups);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to retrieve groups', details: error.message });
+        res.status(500).json({ error: 'Nie udało się pobrać grup', details: error.message });
     }
 });
 
 router.post('/', async (req, res) => {
-    if (!req.decodedToken.admin) return res.status(403).json({ error: 'Unauthorized: Admin privileges required' });
+    if (!req.decodedToken.admin)
+        return res.status(403).json({ error: 'Brak dostępu: wymagane są uprawnienia administratora' });
 
     let transaction;
     try {
@@ -32,7 +34,7 @@ router.post('/', async (req, res) => {
         });
 
         if (!newGroup) {
-            throw new Error('Failed to create group');
+            throw new Error('Nie udało się utworzyć grupy');
         }
 
         if (userUIDs && Array.isArray(userUIDs)) {
@@ -57,12 +59,13 @@ router.post('/', async (req, res) => {
         res.json(newGroup);
     } catch (error) {
         if (transaction) await transaction.rollback();
-        res.status(500).json({ error: 'Failed to create group: ', details: error.message });
+        res.status(500).json({ error: 'Nie udało się utworzyć grupy', details: error.message });
     }
 });
 
 router.get('/:id', async (req, res) => {
-    if (!req.decodedToken.admin) return res.status(403).json({ error: 'Unauthorized: Admin privileges required' });
+    if (!req.decodedToken.admin)
+        return res.status(403).json({ error: 'Brak dostępu: wymagane są uprawnienia administratora' });
 
     try {
         const group = await Groups.findOne({
@@ -89,12 +92,13 @@ router.get('/:id', async (req, res) => {
         });
         res.json(group);
     } catch (error) {
-        res.status(404).json({ error: 'Group not found: ', details: error.message });
+        res.status(404).json({ error: 'Nie znaleziono grupy', details: error.message });
     }
 });
 
 router.put('/:id', async (req, res) => {
-    if (!req.decodedToken.admin) return res.status(403).json({ error: 'Unauthorized: Admin privileges required' });
+    if (!req.decodedToken.admin)
+        return res.status(403).json({ error: 'Brak dostępu: wymagane są uprawnienia administratora' });
 
     let transaction;
     try {
@@ -135,13 +139,15 @@ router.put('/:id', async (req, res) => {
         res.json(updatedGroup);
     } catch (error) {
         if (transaction) await transaction.rollback();
-        res.status(500).json({ error: 'Failed to update group: ', details: error.message });
+        res.status(500).json({ error: 'Nie udało się zaktualizować grupy', details: error.message });
     }
 });
 
 router.delete('/:id', async (req, res) => {
-    if (!req.decodedToken.admin) return res.status(403).json({ error: 'Unauthorized: Admin privileges required' });
-    if (req.params.id == 1) return res.status(403).json({ error: 'Unauthorized: Cannot delete main group' });
+    if (!req.decodedToken.admin)
+        return res.status(403).json({ error: 'Brak dostępu: wymagane są uprawnienia administratora' });
+    if (req.params.id == 1)
+        return res.status(403).json({ error: 'Brak dostępu: nie można usunąć grupy administracyjnej' });
 
     try {
         await Groups.destroy({
@@ -151,7 +157,7 @@ router.delete('/:id', async (req, res) => {
         });
         res.status(204).end();
     } catch (error) {
-        res.status(500).json({ error: 'Failed to delete group', details: error.message });
+        res.status(500).json({ error: 'Nie udało się usunąć grupy', details: error.message });
     }
 });
 

@@ -12,12 +12,13 @@ router.get('/', async (req, res) => {
         const alertTypes = await AlertsTypes.findAll();
         res.json(alertTypes);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to retrieve alert types', details: error.message });
+        res.status(500).json({ error: 'Nie udało się pobrać typów alertów', details: error.message });
     }
 });
 
 router.post('/', async (req, res) => {
-    if (!req.decodedToken.admin) return res.status(403).json({ error: 'Unauthorized: Admin privileges required' });
+    if (!req.decodedToken.admin)
+        return res.status(403).json({ error: 'Brak dostępu: wymagane są uprawnienia administratora' });
 
     let transaction;
     try {
@@ -40,7 +41,7 @@ router.post('/', async (req, res) => {
         res.json(newAlertType);
     } catch (error) {
         if (transaction) await transaction.rollback();
-        res.status(500).json({ error: 'Failed to create alert type', details: error.message });
+        res.status(500).json({ error: 'Nie udało się utworzyć typu alertu', details: error.message });
     }
 });
 
@@ -57,12 +58,13 @@ router.get('/:id', async (req, res) => {
         });
         res.json(alertType);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to retrieve alert type', details: error.message });
+        res.status(500).json({ error: 'Nie udało się pobrać typu alertu', details: error.message });
     }
 });
 
 router.put('/:id', async (req, res) => {
-    if (!req.decodedToken.admin) return res.status(403).json({ error: 'Unauthorized: Admin privileges required' });
+    if (!req.decodedToken.admin)
+        return res.status(403).json({ error: 'Brak dostępu: wymagane są uprawnienia administratora' });
 
     let transaction;
     try {
@@ -95,12 +97,13 @@ router.put('/:id', async (req, res) => {
         res.json(updatedAlertType);
     } catch (error) {
         if (transaction) await transaction.rollback();
-        res.status(500).json({ error: 'Failed to update alert type', details: error.message });
+        res.status(500).json({ error: 'Nie udało się zaktualizować typu alertu', details: error.message });
     }
 });
 
 router.delete('/:id', async (req, res) => {
-    if (!req.decodedToken.admin) return res.status(403).json({ error: 'Unauthorized: Admin privileges required' });
+    if (!req.decodedToken.admin)
+        return res.status(403).json({ error: 'Brak dostępu: wymagane są uprawnienia administratora' });
 
     try {
         const deletedCount = await AlertsTypes.destroy({
@@ -108,12 +111,12 @@ router.delete('/:id', async (req, res) => {
         });
 
         if (deletedCount === 0) {
-            return res.status(404).json({ error: 'Alert Type not found' });
+            return res.status(404).json({ error: 'Nie znaleziono typu alertu' });
         }
 
         res.status(204).end();
     } catch (error) {
-        res.status(500).json({ error: 'Failed to delete alert type', details: error.message });
+        res.status(500).json({ error: 'Nie udało się usunąć typu alertu', details: error.message });
     }
 });
 

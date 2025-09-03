@@ -16,18 +16,20 @@ const AlertsTypes = models.AlertsTypes;
 const ElementsTypes = models.ElementsTypes;
 
 router.get('/', async (req, res) => {
-    if (!req.decodedToken.admin) return res.status(403).json({ error: 'Unauthorized: Admin privileges required' });
+    if (!req.decodedToken.admin)
+        return res.status(403).json({ error: 'Brak dostępu: wymagane są uprawnienia administratora' });
 
     try {
         const displays = await Displays.findAll();
         res.json(displays);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to retrieve displays', details: error.message });
+        res.status(500).json({ error: 'Nie udało się pobrać monitorów', details: error.message });
     }
 });
 
 router.post('/', async (req, res) => {
-    if (!req.decodedToken.admin) return res.status(403).json({ error: 'Unauthorized: Admin privileges required' });
+    if (!req.decodedToken.admin)
+        return res.status(403).json({ error: 'Brak dostępu: wymagane są uprawnienia administratora' });
 
     let transaction;
     try {
@@ -38,7 +40,7 @@ router.post('/', async (req, res) => {
         });
 
         if (!newDisplay) {
-            throw new Error('Failed to create display');
+            throw new Error('Nie udało się utworzyć monitora');
         }
 
         if (EIDs && Array.isArray(EIDs)) {
@@ -55,7 +57,7 @@ router.post('/', async (req, res) => {
         res.json(newDisplay);
     } catch (error) {
         if (transaction) await transaction.rollback();
-        res.status(500).json({ error: 'Failed to create display', details: error.message });
+        res.status(500).json({ error: 'Nie udało się utworzyć monitora', details: error.message });
     }
 });
 
@@ -65,20 +67,20 @@ router.post('/register', async (req, res) => {
         const newDisplay = await Displays.create({});
         res.json({ UUID: newDisplay.UUID });
     } catch (error) {
-        res.status(500).json({ error: 'Failed to create display', details: error.message });
+        res.status(500).json({ error: 'Nie udało się utworzyć monitora', details: error.message });
     }
 });
 
 //nie wymaga uprawnień
 router.post('/login', async (req, res) => {
     try {
-        const user = await Displays.findOne({
+        const display = await Displays.findOne({
             where: {
                 UUID: req.body.UUID,
             },
         });
 
-        if (!user) {
+        if (!display) {
             return res.status(401).json({ error: 'Display not found' });
         }
 
@@ -115,10 +117,10 @@ router.post('/login', async (req, res) => {
         });
 
         return res.status(200).json({
-            message: 'Display login successful',
+            message: 'Monitor zalogował się',
         });
     } catch (error) {
-        res.status(401).json({ error: 'Display logging error', details: error.message });
+        res.status(401).json({ error: 'Nie udało się zalogować monitora', details: error.message });
     }
 });
 
@@ -177,25 +179,12 @@ async function dataGetter(query, id) {
                             },
                         ],
                     },
-                    // {
-                    //     model: Alerts,
-                    //     required: false,
-                    //     include: [
-                    //         {
-                    //             model: AlertsTypes,
-                    //             as: 'AA_AlertsTypes',
-                    //             attributes: ['name'],
-                    //             required: false,
-                    //         },
-                    //     ],
-                    // },
                 ],
             },
         ],
     });
 
     let orders = display?.MapsAndElements?.flatMap(map => map.Orders) || [];
-    // let alerts = display?.MapsAndElements?.flatMap(map => map.Alerts) || [];
     if (!display)
         display = await Displays.findOne({
             where: {
@@ -206,7 +195,6 @@ async function dataGetter(query, id) {
 
     if (display) {
         display['Orders'] = orders;
-        // display['Alerts'] = alerts;
         display['MapsAndElements'] = displayElements.map(element => {
             return { ...element.dataValues };
         });
@@ -216,7 +204,8 @@ async function dataGetter(query, id) {
 }
 
 router.get('/:id', async (req, res) => {
-    if (!req.decodedToken.admin) return res.status(403).json({ error: 'Unauthorized: Admin privileges required' });
+    if (!req.decodedToken.admin)
+        return res.status(403).json({ error: 'Brak dostępu: wymagane są uprawnienia administratora' });
 
     try {
         const query = `
@@ -235,7 +224,7 @@ router.get('/:id', async (req, res) => {
 
         res.json(display);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to retrieve display', details: error.message });
+        res.status(500).json({ error: 'Nie udało się pobrać danych monitora', details: error.message });
     }
 });
 
@@ -267,7 +256,6 @@ router.post('/remote/createAlert/:uuid', async (req, res) => {
         WHERE EID = :EID;
         `;
 
-        // let display = await dataGetter(query, req.params.uuid);
         const rawData = await db.query(query, {
             replacements: {
                 ID: req.params.uuid,
@@ -276,7 +264,7 @@ router.post('/remote/createAlert/:uuid', async (req, res) => {
             type: db.QueryTypes.SELECT,
         });
         const displayElements = rawData.map(row => MapsAndElements.build(row, { isNewRecord: false }));
-        if (!displayElements.length) return res.status(404).json({ error: 'Display or object not found' });
+        if (!displayElements.length) return res.status(404).json({ error: 'Nie znaleziono monitora lub elementu' });
 
         let alert = await Alerts.create({
             EID: req.body.EID,
@@ -292,11 +280,11 @@ router.post('/remote/createAlert/:uuid', async (req, res) => {
         let elements = await findObjectAndParents(alert.EID);
         elements.forEach(element => {
             element = element.dataValues;
-            io.to('EID-' + element.EID).emit('newAlert', alert);
+            io.to('EID-' + element.EID).emit('newAlert', { ...alert, roomEID: element.EID });
         });
         res.json(alert);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to retrieve display', details: error.message });
+        res.status(500).json({ error: 'Nie udało się pobrać danych monitora', details: error.message });
     }
 });
 
@@ -346,7 +334,8 @@ router.get('/remote/:uuid', async (req, res) => {
 });
 
 router.put('/:id', async (req, res) => {
-    if (!req.decodedToken.admin) return res.status(403).json({ error: 'Unauthorized: Admin privileges required' });
+    if (!req.decodedToken.admin)
+        return res.status(403).json({ error: 'Brak dostępu: wymagane są uprawnienia administratora' });
 
     let transaction;
     try {
@@ -377,7 +366,6 @@ router.put('/:id', async (req, res) => {
         }
 
         await transaction.commit();
-        res.json(updatedDisplay);
 
         let displayUUID = await Displays.findOne({
             attributes: ['UUID'],
@@ -387,14 +375,16 @@ router.put('/:id', async (req, res) => {
         });
 
         io.to('display-' + displayUUID.dataValues.UUID).emit('updateDisplay', req.body);
+        res.json(updatedDisplay);
     } catch (error) {
         if (transaction) await transaction.rollback();
-        res.status(500).json({ error: 'Failed to update display', details: error.message });
+        res.status(500).json({ error: 'Nie udało się zaktualizować monitora', details: error.message });
     }
 });
 
 router.delete('/:id', async (req, res) => {
-    if (!req.decodedToken.admin) return res.status(403).json({ error: 'Unauthorized: Admin privileges required' });
+    if (!req.decodedToken.admin)
+        return res.status(403).json({ error: 'Brak dostępu: wymagane są uprawnienia administratora' });
 
     try {
         let displayUUID = await Displays.findOne({
@@ -404,16 +394,19 @@ router.delete('/:id', async (req, res) => {
             },
         });
 
+        if (!displayUUID) return res.status(404).json({ error: 'Display not found' });
+
         await Displays.destroy({
             where: {
                 DID: req.params.id,
             },
         });
-        res.status(204).end();
 
         io.to('display-' + displayUUID.dataValues.UUID).emit('deleteDisplay');
+
+        res.status(204).end();
     } catch (error) {
-        res.status(500).json({ error: 'Failed to delete display', details: error.message });
+        res.status(500).json({ error: 'Nie udało się usunąć monitora', details: error.message });
     }
 });
 

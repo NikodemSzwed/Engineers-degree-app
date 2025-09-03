@@ -83,7 +83,7 @@ io.on('connection', socket => {
 
         if (!socket.rooms.has(roomId) && isAllowed) {
             socket.join(roomId);
-            console.log(`Socket ${socket.id} joined room ${roomId}`);
+            console.log(`\x1b[36mSocket ${socket.id} joined room ${roomId}\x1b[0m`);
         }
     });
 

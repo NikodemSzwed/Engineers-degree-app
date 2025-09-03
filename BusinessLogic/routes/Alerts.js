@@ -41,11 +41,12 @@ router.post('/', async (req, res) => {
         let EIDs = [req.body.EID];
 
         if (await allowence(allowedMaps, EIDs)) {
-            return res.status(403).json({ error: 'You are not allowed to check some or all of those elements' });
+            return res
+                .status(403)
+                .json({ error: 'Nie masz uprawnień do sprawdzenia niektórych lub wszystkich elementów' });
         }
 
         const newAlert = await Alerts.create(removePKandFieldsNotInModel(req.body, Alerts));
-        res.status(201).json(newAlert);
 
         let alertElement = await MapsAndElements.findByPk(newAlert.dataValues.EID);
         let alertType = await AlertsTypes.findByPk(newAlert.dataValues.AAID);
@@ -56,10 +57,12 @@ router.post('/', async (req, res) => {
         let elements = await findObjectAndParents(newAlert.dataValues.EID);
         elements.forEach(element => {
             element = element.dataValues;
-            io.to('EID-' + element.EID).emit('newAlert', newAlert);
+            io.to('EID-' + element.EID).emit('newAlert', { ...newAlert, roomEID: element.EID });
         });
+
+        res.status(201).json(newAlert);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to create alert', details: error.message });
+        res.status(500).json({ error: 'Nie udało się stworzyć alertu', details: error.message });
     }
 });
 
@@ -121,7 +124,7 @@ router.get('/', async (req, res) => {
 
         res.json(alert);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch alert', details: error.message });
+        res.status(500).json({ error: 'Nie udało się pobrać alertu', details: error.message });
     }
 });
 
@@ -179,19 +182,20 @@ router.get('/:id', async (req, res) => {
         if (alert.length == 1) alert = alert[0];
         res.json(alert);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch alert', details: error.message });
+        res.status(500).json({ error: 'Nie udało się pobrać alertu', details: error.message });
     }
 });
 
 router.get('/by-eid/:eid', async (req, res) => {
     try {
-        console.log('🚀 ~ req.decodedToken.displayUUID:', req.decodedToken.displayUUID);
         let EIDs = [req.params.eid];
         if (!req.decodedToken.displayUUID) {
             let allowedMaps = getAllowedMaps(req.cookies['WarehouseLogisticsToken']);
 
             if (await allowence(allowedMaps, EIDs)) {
-                return res.status(403).json({ error: 'You are not allowed to check some or all of those elements' });
+                return res
+                    .status(403)
+                    .json({ error: 'Nie masz uprawnień do sprawdzenia niektórych lub wszystkich elementów' });
             }
         }
 
@@ -210,7 +214,7 @@ router.get('/by-eid/:eid', async (req, res) => {
 
         res.json(alerts);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to retrieve alerts by EID', details: error.message });
+        res.status(500).json({ error: 'Nie udało się pobrać alertów po EID', details: error.message });
     }
 });
 
@@ -220,13 +224,15 @@ router.put('/:id', async (req, res) => {
 
         let alert = await Alerts.findByPk(req.params.id);
         if (!alert) {
-            return res.status(404).json({ error: 'Alert not found' });
+            return res.status(404).json({ error: 'Nie znaleziono alertu' });
         }
 
         let EIDs = [alert.EID];
 
         if (await allowence(allowedMaps, EIDs)) {
-            return res.status(403).json({ error: 'You are not allowed to check some or all of those elements' });
+            return res
+                .status(403)
+                .json({ error: 'Nie masz uprawnień do sprawdzenia niektórych lub wszystkich elementów' });
         }
 
         let alertCount = await Alerts.update(removePKandFieldsNotInModel(req.body, Alerts), {
@@ -234,7 +240,7 @@ router.put('/:id', async (req, res) => {
                 AID: req.params.id,
             },
         });
-        res.json(alertCount);
+
         alert = await Alerts.findByPk(req.params.id);
         alert = alert.dataValues;
         let alertElement = await MapsAndElements.findByPk(alert.EID);
@@ -246,10 +252,11 @@ router.put('/:id', async (req, res) => {
         let elements = await findObjectAndParents(alert.EID);
         elements.forEach(element => {
             element = element.dataValues;
-            io.to('EID-' + element.EID).emit('updateAlert', alert);
+            io.to('EID-' + element.EID).emit('updateAlert', { ...alert, roomEID: element.EID });
         });
+        res.json(alertCount);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to update alert', details: error.message });
+        res.status(500).json({ error: 'Nie udało się zedytować alertu', details: error.message });
     }
 });
 
@@ -262,24 +269,27 @@ router.delete('/:id', async (req, res) => {
             return res.status(404).json({ error: 'Alert not found' });
         }
 
-        let EIDs = [alert.EID];
+        let EIDs = [alert.dataValues.EID];
 
         if (await allowence(allowedMaps, EIDs)) {
-            return res.status(403).json({ error: 'You are not allowed to check some or all of those elements' });
+            return res
+                .status(403)
+                .json({ error: 'Nie masz uprawnień do sprawdzenia niektórych lub wszystkich elementów' });
         }
 
         await Alerts.destroy({
             where: { AID: req.params.id },
         });
 
-        res.status(204).end();
         let elements = await findObjectAndParents(alert.dataValues.EID);
         elements.forEach(element => {
             element = element.dataValues;
-            io.to('EID-' + element.EID).emit('deleteAlert', alert);
+            io.to('EID-' + element.EID).emit('deleteAlert', { ...alert.dataValues, roomEID: element.EID });
         });
+
+        res.status(204).end();
     } catch (error) {
-        res.status(500).json({ error: 'Failed to delete alert', details: error.message });
+        res.status(500).json({ error: 'Nie udało się usunąć alertu', details: error.message });
     }
 });
 
