@@ -18,6 +18,8 @@ const corsBody = {
         'http://localhost:3000',
         'http://192.168.0.157:3000',
         'http://192.168.0.157:5173',
+        'http://10.168.157.85:3000',
+        'http://10.168.157.85:5173',
     ],
     credentials: true,
 };

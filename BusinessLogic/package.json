@@ -4,7 +4,7 @@
     "description": "",
     "main": "index.js",
     "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1",
+        "test": "jest",
         "getModelFromDB": "npx sequelize-auto -o \"./BusinessLogic/models\" -d EngineersDegreeAppDB -h localhost -u EngineersDegreeAppDBuser -p 3306 -x EngineersDegreeAppDBpassword --dialect mysql && node BusinessLogic/database/correct.cjs",
         "format": "prettier --write .",
         "check-format": "prettier --check ."
@@ -29,6 +29,7 @@
         "socket.io": "^4.8.1"
     },
     "devDependencies": {
+        "jest": "^29.7.0",
         "prettier": "^3.5.3"
     }
 }
