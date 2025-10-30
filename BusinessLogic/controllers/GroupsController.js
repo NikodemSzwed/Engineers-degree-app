@@ -111,12 +111,11 @@ async function updateGroup(req, res) {
         const { userUIDs, mapEIDs } = req.body;
         const GID = req.params.id;
         let updatedGroup = [0];
-        if (GID != 1) {
-            updatedGroup = await Groups.update(removePKandFieldsNotInModel(req.body, Groups), {
-                where: { GID },
-                transaction,
-            });
-        }
+
+        updatedGroup = await Groups.update(removePKandFieldsNotInModel(req.body, Groups), {
+            where: { GID },
+            transaction,
+        });
 
         if (userUIDs && Array.isArray(userUIDs)) {
             updatedGroup[0] = 1;
